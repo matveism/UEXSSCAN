@@ -2,674 +2,135 @@
 <html>
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport"
-      content="width=360, height=640, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<!-- ZXing for scanning -->
+<meta name="viewport" content="width=360, height=640, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    width: 360px;
-    height: 640px;
-    overflow: hidden;
-    background: #ffffff;
-    font-family: Arial, sans-serif;
-  }
-
-  .header {
-    width: 360px;
-    height: 32px;
-    background: #0b6fd8;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 8px;
-  }
-
+  body { width: 360px; height: 640px; overflow: hidden; background: #ffffff; font-family: Arial, sans-serif; }
+  .header { width: 360px; height: 32px; background: #0b6fd8; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; }
   .title { font-size: 14px; font-weight: bold; }
-
-  .icons { display: flex; align-items: center; }
-
-  .icon {
-    width: 14px;
-    height: 14px;
-    border: 1px solid #fff;
-    border-radius: 2px;
-    margin-left: 6px;
-  }
-
-  .dots {
-    width: 4px;
-    height: 4px;
-    background: #fff;
-    border-radius: 50%;
-    margin-left: 8px;
-    box-shadow: 0 6px 0 #fff, 0 -6px 0 #fff;
-  }
-
-  .under-area {
-    width: 360px;
-    background: #A7C6E2;
-    padding-bottom: 6px;
-    font-family: Arial, sans-serif;
-    height: calc(640px - 32px);
-    overflow-y: auto;
-  }
-
-  .scan-button-container {
-    width: 360px;
-    padding: 4px 8px;
-    background: #A7C6E2;
-  }
-  
-  .scan-btn {
-    width: 100%;
-    height: 32px;
-    background: #2E7D32;
-    border: 1px solid #1B5E20;
-    border-radius: 4px;
-    color: #fff;
-    font-weight: bold;
-    font-size: 16px;
-    text-align: center;
-    line-height: 32px;
-    cursor: pointer;
-  }
-  
-  .scan-btn:active {
-    background: #1B5E20;
-  }
-
-  .under-header {
-    width: 360px;
-    height: 26px;
-    color: #000;
-    font-weight: bold;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    padding-left: 8px;
-    margin-top: 2px;
-  }
-
-  .grid {
-    width: 360px;
-    margin-top: 4px;
-    display: flex;
-    flex-direction: column;
-  }
-
+  .icons { display: flex; }
+  .icon { width: 14px; height: 14px; border: 1px solid #fff; border-radius: 2px; margin-left: 6px; }
+  .dots { width: 4px; height: 4px; background: #fff; border-radius: 50%; margin-left: 8px; box-shadow: 0 6px 0 #fff, 0 -6px 0 #fff; }
+  .under-area { width: 360px; background: #A7C6E2; padding: 5px; height: calc(640px - 32px); overflow-y: auto; }
+  .scan-btn { width: 100%; height: 40px; background: #2E7D32; color: white; font-size: 18px; font-weight: bold; border: none; border-radius: 5px; margin-bottom: 5px; cursor: pointer; }
+  .under-header { font-weight: bold; margin: 5px 0; }
+  .grid { width: 360px; }
   .row { display: flex; }
-
-  .cell {
-    width: 18px;
-    height: 22px;
-    border: 1px solid #999;
-    background: #E2E8D3;
-    text-align: center;
-    font-weight: bold;
-    font-size: 14px;
-    line-height: 22px;
-    color: #000;
-  }
-
+  .cell { width: 18px; height: 22px; border: 1px solid #999; background: #E2E8D3; text-align: center; font-size: 14px; line-height: 22px; }
   .orange { background: #F49A16; }
   .gray { background: #A9A9A9; }
-
-  .select-status-header {
-    width: 360px;
-    height: 32px;
-    background: #0b6fd8;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    padding-left: 8px;
-    margin-top: 8px;
-    font-weight: bold;
-    font-size: 14px;
-  }
-
-  .status-container {
-    width: 360px;
-    padding: 8px;
-    background: #A7C6E2;
-  }
-  
-  .status-select {
-    width: 100%;
-    height: 40px;
-    background: #fff;
-    border: 2px solid #0b6fd8;
-    border-radius: 4px;
-    font-size: 16px;
-    font-weight: bold;
-    padding: 0 8px;
-    color: #000;
-    cursor: pointer;
-  }
-
-  .gps-status {
-    width: 360px;
-    padding: 4px 8px;
-    background: #A7C6E2;
-    font-size: 12px;
-    color: #0b6fd8;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  
-  .gps-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #FFA500;
-    display: inline-block;
-  }
-  
-  .gps-dot.active {
-    background: #28a745;
-  }
-  
-  .gps-dot.error {
-    background: #dc3545;
-  }
-
-  .label-bar {
-    width: 360px;
-    height: 26px;
-    background: #A7C6E2;
-    color: #000;
-    font-weight: bold;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    padding-left: 8px;
-    margin-top: 2px;
-  }
-
-  .status-message {
-    width: 360px;
-    padding: 8px;
-    text-align: center;
-    font-weight: bold;
-    font-size: 14px;
-    background: #A7C6E2;
-    min-height: 40px;
-  }
-  
-  .success { color: #28a745; }
-  .error { color: #dc3545; }
-  .sending { color: #0b6fd8; }
-
-  .full-box {
-    width: 360px;
-    height: 40px;
-    background: #8FAEC4;
-    border-top: 1px solid #6E8CA1;
-    border-bottom: 1px solid #6E8CA1;
-    margin-top: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    color: #000;
-  }
-
-  .footer {
-    width: 360px;
-    height: 28px;
-    background: #0b6fd8;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 8px;
-    font-size: 13px;
-    font-weight: bold;
-    position: fixed;
-    bottom: 0;
-    z-index: 20;
-  }
-
-  .footer-icons {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .footer-icon {
-    width: 14px;
-    height: 14px;
-    border: 1px solid #fff;
-    border-radius: 2px;
-  }
-
-  .keypad-wrapper {
-    width: 360px;
-    margin-bottom: 28px;
-  }
-
-  .keypad-num {
-    width: 360px;
-    display: flex;
-    justify-content: center;
-    margin-top: 0;
-  }
-
-  .col {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .center-col {
-    display: flex;
-    flex-direction: column;
-    margin: 0 2px;
-  }
-
-  .center-row {
-    display: flex;
-    justify-content: center;
-  }
-
-  .btn,
-  .grid-btn,
-  .q-btn {
-    background: #0b6fd8;
-    border: 2px solid #083f82;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-weight: bold;
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .btn,
-  .grid-btn {
-    width: 60px;
-    height: 34px;
-    margin: 3px 3px;
-    font-size: 16px;
-  }
-
+  .select-status-header { width: 100%; height: 32px; background: #0b6fd8; color: white; display: flex; align-items: center; padding-left: 8px; margin: 10px 0; font-weight: bold; }
+  .status-select { width: 100%; height: 40px; font-size: 16px; margin-bottom: 10px; }
+  .gps-status { font-size: 12px; color: #0b6fd8; margin: 5px 0; display: flex; align-items: center; gap: 5px; }
+  .gps-dot { width: 8px; height: 8px; border-radius: 50%; background: #FFA500; display: inline-block; }
+  .gps-dot.active { background: #28a745; }
+  .label-bar { font-weight: bold; margin: 5px 0; }
+  .status-message { text-align: center; font-weight: bold; padding: 10px; min-height: 40px; }
+  .success { color: #28a745; } .error { color: #dc3545; } .sending { color: #0b6fd8; }
+  .footer { width: 360px; height: 28px; background: #0b6fd8; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; margin-top: 10px; }
+  .footer-icons { display: flex; }
+  .footer-icon { width: 14px; height: 14px; border: 1px solid #fff; border-radius: 2px; margin-right: 8px; }
+  .keypad-wrapper { margin-top: 10px; }
+  .keypad-num { display: flex; justify-content: center; }
+  .col { display: flex; flex-direction: column; }
+  .center-col { display: flex; flex-direction: column; margin: 0 2px; }
+  .center-row { display: flex; justify-content: center; }
+  .btn, .grid-btn { background: #0b6fd8; border: 2px solid #083f82; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; cursor: pointer; width: 60px; height: 34px; margin: 3px; font-size: 16px; }
   .grid-btn { font-size: 18px; }
-
-  .keypad-qwerty {
-    width: 360px;
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 0;
-    padding: 0 2px;
-  }
-
-  .q-row {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-    margin: 1px 0;
-  }
-
-  .q-btn {
-    width: 30px;
-    height: 34px;
-    margin: 1px;
-    font-size: 14px;
-    flex-shrink: 0;
-  }
-
-  .q-btn.wide {
-    width: 45px;
-  }
-
-  .q-btn.space {
-    width: 96px;
-  }
-
-  .scanner-modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 360px;
-    height: 640px;
-    background: #000;
-    z-index: 9999;
-    flex-direction: column;
-  }
+  .keypad-qwerty { display: none; flex-direction: column; align-items: center; }
+  .q-row { display: flex; justify-content: center; }
+  .q-btn { width: 30px; height: 34px; margin: 1px; background: #0b6fd8; border: 2px solid #083f82; border-radius: 4px; color: #fff; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .q-btn.wide { width: 45px; }
+  .q-btn.space { width: 96px; }
   
-  .scanner-modal.active {
-    display: flex;
-  }
-  
-  .scanner-header {
-    width: 360px;
-    height: 32px;
-    background: #0b6fd8;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 8px;
-  }
-  
-  .scanner-title {
-    font-size: 14px;
-    font-weight: bold;
-  }
-  
-  .scanner-close {
-    width: 24px;
-    height: 24px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-  }
-  
-  .scanner-close:active {
-    background: rgba(255,255,255,0.4);
-  }
-  
-  .scanner-content {
-    flex: 1;
-    background: #000;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    position: relative;
-  }
-  
-  #scanner-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .scanner-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-  }
-  
-  .scanner-frame {
-    width: 280px;
-    height: 140px;
-    border: 2px solid #0b6fd8;
-    box-shadow: 0 0 0 1000px rgba(0,0,0,0.5);
-  }
-  
-  .scanner-footer {
-    width: 360px;
-    height: 60px;
-    background: #0b6fd8;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .scanner-cancel {
-    background: #8B0000;
-    border: 1px solid #5a0000;
-    border-radius: 4px;
-    color: #fff;
-    font-weight: bold;
-    font-size: 16px;
-    padding: 10px 30px;
-    cursor: pointer;
-  }
-  
-  .scanner-cancel:active {
-    background: #6b0000;
-  }
-  
-  .scanner-error {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(0,0,0,0.8);
-    color: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    text-align: center;
-    display: none;
-    z-index: 100;
-  }
+  .scanner-modal { display: none; position: fixed; top: 0; left: 0; width: 360px; height: 640px; background: #000; z-index: 9999; flex-direction: column; }
+  .scanner-modal.active { display: flex; }
+  .scanner-header { width: 360px; height: 32px; background: #0b6fd8; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; }
+  .scanner-close { width: 24px; height: 24px; background: rgba(255,255,255,0.2); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; }
+  .scanner-content { flex: 1; background: #000; position: relative; }
+  #scanner-video { width: 100%; height: 100%; object-fit: cover; }
+  .scanner-frame { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; height: 140px; border: 2px solid #0b6fd8; box-shadow: 0 0 0 1000px rgba(0,0,0,0.5); }
+  .scanner-footer { width: 360px; height: 60px; background: #0b6fd8; display: flex; align-items: center; justify-content: center; }
+  .scanner-cancel { background: #8B0000; border: 1px solid #5a0000; border-radius: 4px; color: #fff; font-weight: bold; font-size: 16px; padding: 10px 30px; cursor: pointer; }
 </style>
 </head>
 
 <body>
   <div class="header">
     <div class="title">Scan Barcode</div>
-    <div class="icons">
-      <div class="icon"></div>
-      <div class="icon"></div>
-      <div class="icon"></div>
-      <div class="icon"></div>
-      <div class="dots"></div>
-    </div>
+    <div class="icons"><div class="icon"></div><div class="icon"></div><div class="icon"></div><div class="icon"></div><div class="dots"></div></div>
   </div>
 
   <div class="under-area">
-    <div class="scan-button-container">
-      <div class="scan-btn" id="scanBtn">SCAN</div>
-    </div>
+    <button class="scan-btn" id="scanBtn">📷 SCAN BARCODE</button>
     
-    <div class="under-header">
-      Scan/key-in barcode
-    </div>
+    <div class="under-header">Scan/key-in barcode</div>
 
+    <!-- GRID -->
     <div class="grid">
       <div class="row" id="inputRow">
-        <div class="cell orange input-cell" data-index="0"></div>
-        <div class="cell input-cell" data-index="1"></div>
-        <div class="cell input-cell" data-index="2"></div>
-        <div class="cell input-cell" data-index="3"></div>
-        <div class="cell input-cell" data-index="4"></div>
-        <div class="cell input-cell" data-index="5"></div>
-        <div class="cell input-cell" data-index="6"></div>
-        <div class="cell input-cell" data-index="7"></div>
-        <div class="cell input-cell" data-index="8"></div>
-        <div class="cell input-cell" data-index="9"></div>
-        <div class="cell input-cell" data-index="10"></div>
-        <div class="cell input-cell" data-index="11"></div>
-        <div class="cell input-cell" data-index="12"></div>
-        <div class="cell input-cell" data-index="13"></div>
-        <div class="cell input-cell" data-index="14"></div>
-        <div class="cell input-cell" data-index="15"></div>
-        <div class="cell input-cell" data-index="16"></div>
-        <div class="cell input-cell" data-index="17"></div>
-        <div class="cell input-cell" data-index="18"></div>
-        <div class="cell input-cell" data-index="19"></div>
+        <div class="cell orange input-cell" data-index="0"></div><div class="cell input-cell" data-index="1"></div><div class="cell input-cell" data-index="2"></div><div class="cell input-cell" data-index="3"></div><div class="cell input-cell" data-index="4"></div><div class="cell input-cell" data-index="5"></div><div class="cell input-cell" data-index="6"></div><div class="cell input-cell" data-index="7"></div><div class="cell input-cell" data-index="8"></div><div class="cell input-cell" data-index="9"></div><div class="cell input-cell" data-index="10"></div><div class="cell input-cell" data-index="11"></div><div class="cell input-cell" data-index="12"></div><div class="cell input-cell" data-index="13"></div><div class="cell input-cell" data-index="14"></div><div class="cell input-cell" data-index="15"></div><div class="cell input-cell" data-index="16"></div><div class="cell input-cell" data-index="17"></div><div class="cell input-cell" data-index="18"></div><div class="cell input-cell" data-index="19"></div>
       </div>
-
-      <div class="row">
-        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-      </div>
-
-      <div class="row">
-        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-        <div class="cell"></div>
-        <div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div>
-        <div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div>
-        <div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div>
-        <div class="cell gray"></div><div class="cell gray"></div>
-      </div>
+      <div class="row"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
+      <div class="row"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div></div>
     </div>
 
-    <div class="select-status-header">
-      SELECT STATUS
-    </div>
+    <div class="select-status-header">SELECT STATUS</div>
 
-    <div class="status-container">
-      <select class="status-select" id="statusSelect">
-        <option value="">-- Select Status --</option>
-        <option value="Item Booked">Item Booked</option>
-        <option value="Item Bagged">Item Bagged</option>
-        <option value="Item Dispatched">Item Dispatched</option>
-        <option value="Item Received">Item Received</option>
-        <option value="In-Transit">In-Transit</option>
-        <option value="Item Received at Delivery Office">Item Received at Delivery Office</option>
-        <option value="Out for Delivery">Out for Delivery</option>
-        <option value="Delivered">Delivered</option>
-      </select>
-    </div>
+    <select class="status-select" id="statusSelect">
+      <option value="">-- Select Status --</option>
+      <option value="Item Booked">Item Booked</option>
+      <option value="Item Bagged">Item Bagged</option>
+      <option value="Item Dispatched">Item Dispatched</option>
+      <option value="Item Received">Item Received</option>
+      <option value="In-Transit">In-Transit</option>
+      <option value="Item Received at Delivery Office">Item Received at Delivery Office</option>
+      <option value="Out for Delivery">Out for Delivery</option>
+      <option value="Delivered">Delivered</option>
+    </select>
 
     <div class="gps-status" id="gpsStatus">
       <span class="gps-dot" id="gpsDot"></span>
-      <span id="gpsText">Acquiring GPS location...</span>
+      <span id="gpsText">Acquiring GPS...</span>
     </div>
 
-    <div class="label-bar">
-      |#| LABEL ID |
-    </div>
-
+    <div class="label-bar">|#| LABEL ID |</div>
     <div id="statusMessage" class="status-message">Ready</div>
-
-    <div class="full-box"></div>
-
+    
     <div class="footer">
-      <div class="footer-icons">
-        <div class="footer-icon"></div>
-        <div class="footer-icon"></div>
-        <div class="footer-icon"></div>
-      </div>
+      <div class="footer-icons"><div class="footer-icon"></div><div class="footer-icon"></div><div class="footer-icon"></div></div>
       <div id="timeDisplay"></div>
     </div>
 
+    <!-- KEYPADS -->
     <div class="keypad-wrapper">
       <div class="keypad-num" id="keypadNum">
-        <div class="col">
-          <div class="btn key-btn" data-action="left">←</div>
-          <div class="btn key-btn" data-action="right">→</div>
-          <div class="btn key-btn" data-action="esc">ESC</div>
-          <div class="btn key-btn" data-action="toQwerty">ABC SYM</div>
-        </div>
-
+        <div class="col"><div class="btn key-btn" data-action="left">←</div><div class="btn key-btn" data-action="right">→</div><div class="btn key-btn" data-action="esc">ESC</div><div class="btn key-btn" data-action="toQwerty">ABC SYM</div></div>
         <div class="center-col">
-          <div class="center-row">
-            <div class="grid-btn key-btn" data-char="1">1</div>
-            <div class="grid-btn key-btn" data-char="2">2</div>
-            <div class="grid-btn key-btn" data-char="3">3</div>
-          </div>
-          <div class="center-row">
-            <div class="grid-btn key-btn" data-char="4">4</div>
-            <div class="grid-btn key-btn" data-char="5">5</div>
-            <div class="grid-btn key-btn" data-char="6">6</div>
-          </div>
-          <div class="center-row">
-            <div class="grid-btn key-btn" data-char="7">7</div>
-            <div class="grid-btn key-btn" data-char="8">8</div>
-            <div class="grid-btn key-btn" data-char="9">9</div>
-          </div>
-          <div class="center-row">
-            <div class="grid-btn key-btn" data-char="-">-</div>
-            <div class="grid-btn key-btn" data-char="0">0</div>
-            <div class="grid-btn key-btn" data-char=".">.</div>
-          </div>
+          <div class="center-row"><div class="grid-btn key-btn" data-char="1">1</div><div class="grid-btn key-btn" data-char="2">2</div><div class="grid-btn key-btn" data-char="3">3</div></div>
+          <div class="center-row"><div class="grid-btn key-btn" data-char="4">4</div><div class="grid-btn key-btn" data-char="5">5</div><div class="grid-btn key-btn" data-char="6">6</div></div>
+          <div class="center-row"><div class="grid-btn key-btn" data-char="7">7</div><div class="grid-btn key-btn" data-char="8">8</div><div class="grid-btn key-btn" data-char="9">9</div></div>
+          <div class="center-row"><div class="grid-btn key-btn" data-char="-">-</div><div class="grid-btn key-btn" data-char="0">0</div><div class="grid-btn key-btn" data-char=".">.</div></div>
         </div>
-
-        <div class="col">
-          <div class="btn key-btn" data-action="up">↑</div>
-          <div class="btn key-btn" data-action="down">↓</div>
-          <div class="btn key-btn" data-action="backspace">⌫</div>
-          <div class="btn key-btn" data-action="enter">ENT↵</div>
-        </div>
+        <div class="col"><div class="btn key-btn" data-action="up">↑</div><div class="btn key-btn" data-action="down">↓</div><div class="btn key-btn" data-action="backspace">⌫</div><div class="btn key-btn" data-action="enter">ENT↵</div></div>
       </div>
 
       <div class="keypad-qwerty" id="keypadQwerty">
-        <div class="q-row">
-          <div class="q-btn key-btn" data-char="Q">Q</div>
-          <div class="q-btn key-btn" data-char="W">W</div>
-          <div class="q-btn key-btn" data-char="E">E</div>
-          <div class="q-btn key-btn" data-char="R">R</div>
-          <div class="q-btn key-btn" data-char="T">T</div>
-          <div class="q-btn key-btn" data-char="Y">Y</div>
-          <div class="q-btn key-btn" data-char="U">U</div>
-          <div class="q-btn key-btn" data-char="I">I</div>
-          <div class="q-btn key-btn" data-char="O">O</div>
-          <div class="q-btn key-btn" data-char="P">P</div>
-        </div>
-
-        <div class="q-row">
-          <div class="q-btn key-btn" data-char="A">A</div>
-          <div class="q-btn key-btn" data-char="S">S</div>
-          <div class="q-btn key-btn" data-char="D">D</div>
-          <div class="q-btn key-btn" data-char="F">F</div>
-          <div class="q-btn key-btn" data-char="G">G</div>
-          <div class="q-btn key-btn" data-char="H">H</div>
-          <div class="q-btn key-btn" data-char="J">J</div>
-          <div class="q-btn key-btn" data-char="K">K</div>
-          <div class="q-btn key-btn" data-char="L">L</div>
-        </div>
-
-        <div class="q-row">
-          <div class="q-btn wide">⇧</div>
-          <div class="q-btn key-btn" data-char="Z">Z</div>
-          <div class="q-btn key-btn" data-char="X">X</div>
-          <div class="q-btn key-btn" data-char="C">C</div>
-          <div class="q-btn key-btn" data-char="V">V</div>
-          <div class="q-btn key-btn" data-char="B">B</div>
-          <div class="q-btn key-btn" data-char="N">N</div>
-          <div class="q-btn key-btn" data-char="M">M</div>
-          <div class="q-btn wide">⇧</div>
-        </div>
-
-        <div class="q-row">
-          <div class="q-btn wide key-btn" data-action="toNum">123</div>
-          <div class="q-btn space key-btn" data-char=" ">SPACE</div>
-          <div class="q-btn wide key-btn" data-action="backspace">⌫</div>
-          <div class="q-btn wide key-btn" data-action="enter">↵</div>
-        </div>
+        <div class="q-row"><div class="q-btn key-btn" data-char="Q">Q</div><div class="q-btn key-btn" data-char="W">W</div><div class="q-btn key-btn" data-char="E">E</div><div class="q-btn key-btn" data-char="R">R</div><div class="q-btn key-btn" data-char="T">T</div><div class="q-btn key-btn" data-char="Y">Y</div><div class="q-btn key-btn" data-char="U">U</div><div class="q-btn key-btn" data-char="I">I</div><div class="q-btn key-btn" data-char="O">O</div><div class="q-btn key-btn" data-char="P">P</div></div>
+        <div class="q-row"><div class="q-btn key-btn" data-char="A">A</div><div class="q-btn key-btn" data-char="S">S</div><div class="q-btn key-btn" data-char="D">D</div><div class="q-btn key-btn" data-char="F">F</div><div class="q-btn key-btn" data-char="G">G</div><div class="q-btn key-btn" data-char="H">H</div><div class="q-btn key-btn" data-char="J">J</div><div class="q-btn key-btn" data-char="K">K</div><div class="q-btn key-btn" data-char="L">L</div></div>
+        <div class="q-row"><div class="q-btn wide">⇧</div><div class="q-btn key-btn" data-char="Z">Z</div><div class="q-btn key-btn" data-char="X">X</div><div class="q-btn key-btn" data-char="C">C</div><div class="q-btn key-btn" data-char="V">V</div><div class="q-btn key-btn" data-char="B">B</div><div class="q-btn key-btn" data-char="N">N</div><div class="q-btn key-btn" data-char="M">M</div><div class="q-btn wide">⇧</div></div>
+        <div class="q-row"><div class="q-btn wide key-btn" data-action="toNum">123</div><div class="q-btn space key-btn" data-char=" ">SPACE</div><div class="q-btn wide key-btn" data-action="backspace">⌫</div><div class="q-btn wide key-btn" data-action="enter">↵</div></div>
       </div>
     </div>
   </div>
 
+  <!-- SCANNER MODAL -->
   <div class="scanner-modal" id="scannerModal">
-    <div class="scanner-header">
-      <div class="scanner-title">Scan Barcode</div>
-      <div class="scanner-close" id="closeScanner">✕</div>
-    </div>
-    
-    <div class="scanner-content">
-      <video id="scanner-video"></video>
-      <div class="scanner-overlay">
-        <div class="scanner-frame"></div>
-      </div>
-      <div class="scanner-error" id="scannerError">
-        Camera error or permission denied
-      </div>
-    </div>
-    
-    <div class="scanner-footer">
-      <div class="scanner-cancel" id="cancelScan">CANCEL</div>
-    </div>
+    <div class="scanner-header"><div class="scanner-title">Scan Barcode</div><div class="scanner-close" id="closeScanner">✕</div></div>
+    <div class="scanner-content"><video id="scanner-video"></video><div class="scanner-frame"></div></div>
+    <div class="scanner-footer"><div class="scanner-cancel" id="cancelScan">CANCEL</div></div>
   </div>
 
 <script>
@@ -677,15 +138,11 @@
   function updateTime() {
     var el = document.getElementById("timeDisplay");
     var now = new Date();
-    var month = now.getMonth() + 1;
-    var day = now.getDate();
     var hours = now.getHours();
-    var minutes = now.getMinutes();
     var ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    if (minutes < 10) minutes = "0" + minutes;
-    el.textContent = month + "/" + day + " " + hours + ":" + minutes + " " + ampm;
+    hours = hours % 12 || 12;
+    var minutes = now.getMinutes() < 10 ? "0" + now.getMinutes() : now.getMinutes();
+    el.textContent = (now.getMonth()+1) + "/" + now.getDate() + " " + hours + ":" + minutes + " " + ampm;
   }
   setInterval(updateTime, 1000);
   updateTime();
@@ -699,122 +156,69 @@
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         function(position) {
-          var lat = position.coords.latitude.toFixed(6);
-          var lng = position.coords.longitude.toFixed(6);
-          currentLocation = lat + ", " + lng;
+          currentLocation = position.coords.latitude.toFixed(6) + ", " + position.coords.longitude.toFixed(6);
           gpsText.textContent = "GPS: " + currentLocation;
           gpsDot.className = "gps-dot active";
         },
-        function(error) {
-          var errorMsg = "GPS unavailable";
-          currentLocation = errorMsg;
-          gpsText.textContent = errorMsg;
+        function() {
+          currentLocation = "GPS unavailable";
+          gpsText.textContent = "GPS unavailable";
           gpsDot.className = "gps-dot error";
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
+        { enableHighAccuracy: true, timeout: 10000 }
       );
-    } else {
-      currentLocation = "GPS not supported";
-      gpsText.textContent = "GPS not supported";
-      gpsDot.className = "gps-dot error";
     }
   }
-  
   getLocation();
 
   // GRID LOGIC
   var cells = Array.from(document.querySelectorAll(".input-cell"));
   var activeIndex = 0;
-  var maxIndex = cells.length - 1;
   var statusMsg = document.getElementById("statusMessage");
   var statusSelect = document.getElementById("statusSelect");
 
-  function setActive(index) {
-    if (index < 0) index = 0;
-    if (index > maxIndex) index = maxIndex;
-    activeIndex = index;
-    for (var i = 0; i < cells.length; i++) {
-      cells[i].classList.remove("orange");
-    }
-    cells[activeIndex].classList.add("orange");
+  function setActive(i) { 
+    cells.forEach(c => c.classList.remove("orange")); 
+    cells[i].classList.add("orange"); 
+    activeIndex = i; 
   }
-
-  function writeChar(ch) {
-    cells[activeIndex].textContent = ch;
-    if (activeIndex < maxIndex) {
-      setActive(activeIndex + 1);
-    }
-  }
-
-  function writeBarcode(barcode) {
-    for (var i = 0; i < barcode.length && i <= maxIndex; i++) {
-      cells[i].textContent = barcode.charAt(i);
-    }
-    setActive(0);
-  }
-
-  function getBarcodeFromGrid() {
-    var barcode = "";
-    for (var i = 0; i <= maxIndex; i++) {
-      if (cells[i].textContent) {
-        barcode += cells[i].textContent;
-      } else {
-        break;
-      }
-    }
-    return barcode;
-  }
-
-  function clearGrid() {
-    for (var i = 0; i <= maxIndex; i++) {
-      cells[i].textContent = "";
-    }
-    setActive(0);
-  }
-
-  function doBackspace() {
-    if (cells[activeIndex].textContent) {
-      cells[activeIndex].textContent = "";
-    } else if (activeIndex > 0) {
-      setActive(activeIndex - 1);
-      cells[activeIndex].textContent = "";
-    }
-  }
-
-  function moveLeft() {
-    if (activeIndex > 0) setActive(activeIndex - 1);
-  }
-
-  function moveRight() {
-    if (activeIndex < maxIndex) setActive(activeIndex + 1);
-  }
-
-  function moveUp() {
-    if (activeIndex - 20 >= 0) setActive(activeIndex - 20);
-  }
-
-  function moveDown() {
-    if (activeIndex + 20 <= maxIndex) setActive(activeIndex + 20);
-  }
-
-  // XANO ENDPOINT - WORKING DIRECTLY
-  var API_URL = "https://x8ki-letl-twmt.n7.xano.io/api:WGx5FQAG/qr_scans";
   
-  function sendToXano(barcode) {
-    var selectedStatus = statusSelect.value;
-    
-    if (!selectedStatus) {
+  function writeChar(ch) { 
+    cells[activeIndex].textContent = ch; 
+    if (activeIndex < 19) setActive(activeIndex + 1); 
+  }
+  
+  function writeBarcode(bc) { 
+    for (var i=0; i<bc.length && i<20; i++) cells[i].textContent = bc[i]; 
+    setActive(0); 
+  }
+  
+  function getBarcode() { 
+    var bc = ""; 
+    for (var i=0; i<20; i++) if (cells[i].textContent) bc += cells[i].textContent; else break; 
+    return bc; 
+  }
+  
+  function clearGrid() { 
+    cells.forEach(c => c.textContent = ""); 
+    setActive(0); 
+  }
+
+  // =============================================
+  // 🔥 YOUR GOOGLE APPS SCRIPT URL - WORKING
+  // =============================================
+  var GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyDfIlwUd766tNT4ZCoGY77LmTsoYma54zk6zf6NLNsIlKB5II48ihVEdMRskJZsibI0g/exec";
+  
+  function sendToGoogleSheets(barcode) {
+    var status = statusSelect.value;
+    if (!status) { 
       statusMsg.className = "status-message error";
-      statusMsg.textContent = "Please select a status first";
-      return;
+      statusMsg.textContent = "Select status!"; 
+      return; 
     }
     
     statusMsg.className = "status-message sending";
-    statusMsg.textContent = "Sending to XANO...";
+    statusMsg.textContent = "Saving to Google Sheets...";
     
     var now = new Date();
     var date = now.getFullYear() + "-" + 
@@ -824,183 +228,123 @@
                String(now.getMinutes()).padStart(2, '0') + ":" + 
                String(now.getSeconds()).padStart(2, '0');
     
-    // SIMPLE JSON - MATCHES YOUR XANO TABLE
-    var data = {
-      label_id: barcode,
-      barcode_type: "EAN-13",
-      status: selectedStatus,
-      date: date,
-      time: time,
-      location: currentLocation,
-      eta: date,
-      timestamp: now.toISOString()
-    };
+    // Create form data
+    var formData = new FormData();
+    formData.append("label_id", barcode);
+    formData.append("barcode_type", "EAN-13");
+    formData.append("status", status);
+    formData.append("date", date);
+    formData.append("time", time);
+    formData.append("location", currentLocation);
+    formData.append("eta", date);
+    formData.append("timestamp", now.toISOString());
 
-    console.log("SENDING TO XANO:", data);
+    console.log("SENDING:", Object.fromEntries(formData));
     
     var xhr = new XMLHttpRequest();
-    xhr.open("POST", API_URL, true);
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.setRequestHeader("Accept", "application/json");
-    
-    xhr.timeout = 15000;
+    xhr.open("POST", GOOGLE_SCRIPT_URL, true);
     
     xhr.onload = function() {
-      console.log("XANO Response:", xhr.status, xhr.responseText);
-      
-      if (xhr.status >= 200 && xhr.status < 300) {
-        statusMsg.className = "status-message success";
-        statusMsg.textContent = "✓ SAVED TO XANO!";
-        alert("✅ XANO SUCCESS\n\nBarcode: " + barcode + 
-              "\nStatus: " + selectedStatus +
-              "\nLocation: " + currentLocation +
-              "\n\nData saved to database");
-        clearGrid();
-      } else {
-        statusMsg.className = "status-message error";
-        statusMsg.textContent = "✗ XANO Error " + xhr.status;
-        
-        // Show detailed error
-        var errorText = "❌ XANO ERROR " + xhr.status;
-        if (xhr.responseText) {
-          errorText += "\n\nResponse: " + xhr.responseText;
+      console.log("RESPONSE:", xhr.responseText);
+      try {
+        var response = JSON.parse(xhr.responseText);
+        if (response.success) {
+          statusMsg.className = "status-message success";
+          statusMsg.textContent = "✓ SAVED TO GOOGLE SHEETS!";
+          alert("✅ SUCCESS!\nBarcode: " + barcode + "\nStatus: " + status + "\nLocation: " + currentLocation);
+          clearGrid();
+        } else {
+          throw new Error(response.error || "Unknown error");
         }
-        alert(errorText);
+      } catch(e) {
+        statusMsg.className = "status-message error";
+        statusMsg.textContent = "✗ Error: " + e.message;
+        alert("❌ ERROR:\n" + e.message);
       }
     };
     
     xhr.onerror = function() {
-      console.log("Network error");
       statusMsg.className = "status-message error";
       statusMsg.textContent = "✗ Network error";
-      alert("❌ NETWORK ERROR\nCannot reach XANO\n\nCheck:\n• Internet connection\n• XANO endpoint is live\n• CORS settings");
+      alert("❌ NETWORK ERROR\nCheck that your Google Script is deployed with 'Anyone' access");
     };
     
-    xhr.ontimeout = function() {
-      statusMsg.className = "status-message error";
-      statusMsg.textContent = "✗ Timeout";
-      alert("❌ TIMEOUT\nXANO server not responding");
-    };
-    
-    xhr.send(JSON.stringify(data));
+    xhr.send(formData);
   }
 
-  function doEnter() {
-    var barcode = getBarcodeFromGrid();
-    
-    if (barcode) {
-      getLocation(); // Refresh GPS
-      setTimeout(function() {
-        sendToXano(barcode);
-      }, 500);
+  function doEnter() { 
+    var bc = getBarcode(); 
+    if (bc) {
+      getLocation();
+      setTimeout(function() { sendToGoogleSheets(bc); }, 500);
     } else {
       statusMsg.className = "status-message error";
       statusMsg.textContent = "No barcode entered";
     }
   }
-
-  function doEsc() {
-    clearGrid();
+  
+  function doEsc() { 
+    clearGrid(); 
     statusMsg.className = "status-message";
-    statusMsg.textContent = "Ready";
+    statusMsg.textContent = "Ready"; 
   }
 
   // SCANNER
   var scannerModal = document.getElementById("scannerModal");
-  var scanBtn = document.getElementById("scanBtn");
-  var closeScanner = document.getElementById("closeScanner");
-  var cancelScan = document.getElementById("cancelScan");
-  var scannerError = document.getElementById("scannerError");
-  var video = document.getElementById("scanner-video");
+  document.getElementById("scanBtn").onclick = function() { 
+    scannerModal.classList.add("active"); 
+    startScanner(); 
+  };
   
-  var codeReader = null;
+  function closeScanner() { 
+    if (codeReader) codeReader.reset(); 
+    scannerModal.classList.remove("active"); 
+  }
   
-  scanBtn.addEventListener("click", function() {
-    scannerModal.classList.add("active");
-    scannerError.style.display = "none";
-    startScanner();
-  });
+  document.getElementById("closeScanner").onclick = closeScanner;
+  document.getElementById("cancelScan").onclick = closeScanner;
   
+  var codeReader;
   function startScanner() {
     try {
       codeReader = new ZXing.BrowserMultiFormatReader();
-      
-      codeReader.decodeFromVideoDevice(null, video, function(result, error) {
+      codeReader.decodeFromVideoDevice(null, document.getElementById("scanner-video"), function(result) {
         if (result) {
-          var barcode = result.text;
-          writeBarcode(barcode);
-          stopScanner();
-          scannerModal.classList.remove("active");
-        }
-        if (error && !(error instanceof ZXing.NotFoundException)) {
-          scannerError.style.display = "block";
-          scannerError.textContent = "Camera error";
+          writeBarcode(result.text);
+          closeScanner();
         }
       });
-    } catch (e) {
-      scannerError.style.display = "block";
-      scannerError.textContent = "Scanner failed";
-    }
-  }
-  
-  function stopScanner() {
-    if (codeReader) {
-      codeReader.reset();
-      codeReader = null;
-    }
-  }
-  
-  function closeScannerModal() {
-    stopScanner();
-    scannerModal.classList.remove("active");
-  }
-  
-  closeScanner.addEventListener("click", closeScannerModal);
-  cancelScan.addEventListener("click", closeScannerModal);
-
-  // KEYPAD SWITCHING
-  var numpad = document.getElementById("keypadNum");
-  var qwerty = document.getElementById("keypadQwerty");
-
-  function showNumPad() {
-    numpad.style.display = "flex";
-    qwerty.style.display = "none";
+    } catch(e) { alert("Camera error: " + e.message); }
   }
 
-  function showQwertyPad() {
-    numpad.style.display = "none";
-    qwerty.style.display = "flex";
-  }
-
-  // EVENT LISTENERS
-  var keyButtons = document.querySelectorAll(".key-btn");
-  for (var i = 0; i < keyButtons.length; i++) {
-    keyButtons[i].addEventListener("click", function(e) {
-      var btn = this;
-      var char = btn.dataset.char;
-      var action = btn.dataset.action;
-
-      if (char) {
-        writeChar(char);
-      } else if (action) {
-        switch(action) {
-          case "left": moveLeft(); break;
-          case "right": moveRight(); break;
-          case "up": moveUp(); break;
-          case "down": moveDown(); break;
-          case "backspace": doBackspace(); break;
-          case "enter": doEnter(); break;
-          case "esc": doEsc(); break;
-          case "toQwerty": showQwertyPad(); break;
-          case "toNum": showNumPad(); break;
-        }
+  // KEYPAD
+  document.querySelectorAll(".key-btn").forEach(btn => {
+    btn.onclick = function() {
+      var char = this.dataset.char;
+      var action = this.dataset.action;
+      if (char) writeChar(char);
+      else if (action === "left" && activeIndex>0) setActive(activeIndex-1);
+      else if (action === "right" && activeIndex<19) setActive(activeIndex+1);
+      else if (action === "up" && activeIndex>19) setActive(activeIndex-20);
+      else if (action === "down" && activeIndex<180) setActive(activeIndex+20);
+      else if (action === "backspace") { 
+        if (cells[activeIndex].textContent) cells[activeIndex].textContent = "";
+        else if (activeIndex>0) { setActive(activeIndex-1); cells[activeIndex].textContent = ""; }
       }
-    });
-  }
+      else if (action === "enter") doEnter();
+      else if (action === "esc") doEsc();
+      else if (action === "toQwerty") {
+        document.getElementById("keypadNum").style.display = "none";
+        document.getElementById("keypadQwerty").style.display = "flex";
+      }
+      else if (action === "toNum") {
+        document.getElementById("keypadNum").style.display = "flex";
+        document.getElementById("keypadQwerty").style.display = "none";
+      }
+    };
+  });
 
-  // Initialize
   setActive(0);
-  showNumPad();
 </script>
 </body>
 </html>
