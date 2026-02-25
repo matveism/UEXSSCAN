@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport"
+      content="width=360, height=640, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 360px;
+    height: 640px;
+    overflow: hidden;
+    background: #ffffff;
+    font-family: Arial, sans-serif;
+  }
+
+  /* HEADER (blue) */
+  .header {
+    width: 360px;
+    height: 32px;
+    background: #0b6fd8;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+  }
+
+  .title { font-size: 14px; font-weight: bold; }
+
+  .icons { display: flex; align-items: center; }
+
+  .icon {
+    width: 14px;
+    height: 14px;
+    border: 1px solid #fff;
+    border-radius: 2px;
+    margin-left: 6px;
+  }
+
+  .dots {
+    width: 4px;
+    height: 4px;
+    background: #fff;
+    border-radius: 50%;
+    margin-left: 8px;
+    box-shadow: 0 6px 0 #fff, 0 -6px 0 #fff;
+  }
+
+  /* EVERYTHING UNDER HEADER SHARES SAME BACKGROUND */
+  .under-area {
+    width: 360px;
+    background: #A7C6E2;
+    padding-bottom: 6px;
+    font-family: "Courier New", monospace;
+  }
+
+  /* Scan/key-in barcode strip */
+  .under-header {
+    width: 360px;
+    height: 26px;
+    color: #000;
+    font-weight: bold;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    margin-top: 2px;
+  }
+
+  /* GRID */
+  .grid {
+    width: 360px;
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .row { display: flex; }
+
+  .cell {
+    width: 18px;
+    height: 22px;
+    border: 1px solid #999;
+    background: #E2E8D3;
+    text-align: center;
+    font-weight: bold;
+    font-size: 14px;
+    line-height: 22px;
+    color: #000;
+  }
+
+  .orange { background: #F49A16; }
+  .gray { background: #A9A9A9; }
+
+  /* GPS STATUS */
+  .gps-status {
+    width: 360px;
+    padding: 4px 8px;
+    background: #A7C6E2;
+    font-size: 12px;
+    color: #0b6fd8;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .gps-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #FFA500;
+    display: inline-block;
+  }
+  
+  .gps-dot.active {
+    background: #28a745;
+  }
+  
+  .gps-dot.error {
+    background: #dc3545;
+  }
+
+  /* LABEL ID BAR */
+  .label-bar {
+    width: 360px;
+    height: 26px;
+    background: #A7C6E2;
+    color: #000;
+    font-weight: bold;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    margin-top: 2px;
+  }
+
+  /* FULL-WIDTH DARKER BOX */
+  .full-box {
+    width: 360px;
+    height: 40px;
+    background: #8FAEC4;
+    border-top: 1px solid #6E8CA1;
+    border-bottom: 1px solid #6E8CA1;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #000;
+  }
+
+  /* FOOTER BAR (icons + time) */
+  .footer {
+    width: 360px;
+    height: 28px;
+    background: #0b6fd8;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+    margin-top: 0;
+    font-size: 13px;
+    font-weight: bold;
+  }
+
+  .footer-icons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .footer-icon {
+    width: 14px;
+    height: 14px;
+    border: 1px solid #fff;
+    border-radius: 2px;
+  }
+
+  /* KEYPADS WRAPPER */
+  .keypad-wrapper {
+    width: 360px;
+  }
+
+  /* NUMERIC KEYPAD */
+  .keypad-num {
+    width: 360px;
+    display: flex;
+    justify-content: center;
+    margin-top: 0;
+  }
+
+  .col {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .center-col {
+    display: flex;
+    flex-direction: column;
+    margin: 0 2px;
+  }
+
+  .center-row {
+    display: flex;
+    justify-content: center;
+  }
+
+  .btn,
+  .grid-btn,
+  .q-btn {
+    background: #0b6fd8;
+    border: 2px solid #083f82;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .btn,
+  .grid-btn {
+    width: 60px;
+    height: 34px;
+    margin: 3px 3px;
+    font-size: 16px;
+  }
+
+  .grid-btn { font-size: 18px; }
+
+  /* COMPACT QWERTY KEYPAD - PERFECT FIT 360px */
+  .keypad-qwerty {
+    width: 360px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 0;
+    padding: 0 2px;
+  }
+
+  .q-row {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin: 1px 0;
+  }
+
+  .q-btn {
+    width: 30px;
+    height: 34px;
+    margin: 1px;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .q-btn.wide {
+    width: 45px;
+  }
+
+  .q-btn.space {
+    width: 96px;
+  }
+  
+  /* Status message */
+  .status-message {
+    width: 360px;
+    padding: 4px 8px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 14px;
+    background: #A7C6E2;
+  }
+  
+  .success { color: #28a745; }
+  .error { color: #dc3545; }
+  .sending { color: #0b6fd8; }
+</style>
+</head>
+
+<body>
+  <!-- HEADER -->
+  <div class="header">
+    <div class="title">Scan Barcode</div>
+    <div class="icons">
+      <div class="icon"></div>
+      <div class="icon"></div>
+      <div class="icon"></div>
+      <div class="icon"></div>
+      <div class="dots"></div>
+    </div>
+  </div>
+
+  <!-- EVERYTHING BELOW HEADER -->
+  <div class="under-area">
+    <!-- Scan/key-in barcode -->
+    <div class="under-header">
+      Scan/key-in barcode
+    </div>
+
+    <!-- GRID (3 ROWS × 20 CELLS) -->
+    <div class="grid">
+      <!-- ROW 1 (ACTIVE INPUT ROW) -->
+      <div class="row" id="inputRow">
+        <div class="cell orange input-cell" data-index="0"></div>
+        <div class="cell input-cell" data-index="1"></div>
+        <div class="cell input-cell" data-index="2"></div>
+        <div class="cell input-cell" data-index="3"></div>
+        <div class="cell input-cell" data-index="4"></div>
+        <div class="cell input-cell" data-index="5"></div>
+        <div class="cell input-cell" data-index="6"></div>
+        <div class="cell input-cell" data-index="7"></div>
+        <div class="cell input-cell" data-index="8"></div>
+        <div class="cell input-cell" data-index="9"></div>
+        <div class="cell input-cell" data-index="10"></div>
+        <div class="cell input-cell" data-index="11"></div>
+        <div class="cell input-cell" data-index="12"></div>
+        <div class="cell input-cell" data-index="13"></div>
+        <div class="cell input-cell" data-index="14"></div>
+        <div class="cell input-cell" data-index="15"></div>
+        <div class="cell input-cell" data-index="16"></div>
+        <div class="cell input-cell" data-index="17"></div>
+        <div class="cell input-cell" data-index="18"></div>
+        <div class="cell input-cell" data-index="19"></div>
+      </div>
+
+      <!-- ROW 2 -->
+      <div class="row">
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      </div>
+
+      <!-- ROW 3 -->
+      <div class="row">
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div>
+        <div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div>
+        <div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div>
+        <div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div>
+        <div class="cell gray"></div><div class="cell gray"></div>
+      </div>
+    </div>
+
+    <!-- GPS STATUS -->
+    <div class="gps-status" id="gpsStatus">
+      <span class="gps-dot" id="gpsDot"></span>
+      <span id="gpsText">Acquiring GPS location...</span>
+    </div>
+
+    <!-- LABEL ID BAR -->
+    <div class="label-bar">
+      |#| LABEL ID |
+    </div>
+
+    <!-- STATUS MESSAGE -->
+    <div id="statusMessage" class="status-message">Ready</div>
+
+    <!-- FULL-WIDTH DARKER BOX -->
+    <div class="full-box"></div>
+
+    <!-- FOOTER BAR -->
+    <div class="footer">
+      <div class="footer-icons">
+        <div class="footer-icon"></div>
+        <div class="footer-icon"></div>
+        <div class="footer-icon"></div>
+      </div>
+      <div id="timeDisplay">02/24 11:25 PM</div>
+    </div>
+
+    <!-- KEYPADS -->
+    <div class="keypad-wrapper">
+      <!-- NUMERIC KEYPAD -->
+      <div class="keypad-num" id="keypadNum">
+        <!-- LEFT COLUMN -->
+        <div class="col">
+          <div class="btn key-btn" data-action="left">←</div>
+          <div class="btn key-btn" data-action="right">→</div>
+          <div class="btn key-btn" data-action="esc">ESC</div>
+          <div class="btn key-btn" data-action="toQwerty">ABC SYM</div>
+        </div>
+
+        <!-- CENTER GRID -->
+        <div class="center-col">
+          <div class="center-row">
+            <div class="grid-btn key-btn" data-char="1">1</div>
+            <div class="grid-btn key-btn" data-char="2">2</div>
+            <div class="grid-btn key-btn" data-char="3">3</div>
+          </div>
+          <div class="center-row">
+            <div class="grid-btn key-btn" data-char="4">4</div>
+            <div class="grid-btn key-btn" data-char="5">5</div>
+            <div class="grid-btn key-btn" data-char="6">6</div>
+          </div>
+          <div class="center-row">
+            <div class="grid-btn key-btn" data-char="7">7</div>
+            <div class="grid-btn key-btn" data-char="8">8</div>
+            <div class="grid-btn key-btn" data-char="9">9</div>
+          </div>
+          <div class="center-row">
+            <div class="grid-btn key-btn" data-char="-">-</div>
+            <div class="grid-btn key-btn" data-char="0">0</div>
+            <div class="grid-btn key-btn" data-char=".">.</div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="col">
+          <div class="btn key-btn" data-action="up">↑</div>
+          <div class="btn key-btn" data-action="down">↓</div>
+          <div class="btn key-btn" data-action="backspace">⌫</div>
+          <div class="btn key-btn" data-action="enter">ENT↵</div>
+        </div>
+      </div>
+
+      <!-- COMPACT QWERTY KEYPAD - PERFECT FIT -->
+      <div class="keypad-qwerty" id="keypadQwerty">
+        <!-- ROW 1 -->
+        <div class="q-row">
+          <div class="q-btn key-btn" data-char="Q">Q</div>
+          <div class="q-btn key-btn" data-char="W">W</div>
+          <div class="q-btn key-btn" data-char="E">E</div>
+          <div class="q-btn key-btn" data-char="R">R</div>
+          <div class="q-btn key-btn" data-char="T">T</div>
+          <div class="q-btn key-btn" data-char="Y">Y</div>
+          <div class="q-btn key-btn" data-char="U">U</div>
+          <div class="q-btn key-btn" data-char="I">I</div>
+          <div class="q-btn key-btn" data-char="O">O</div>
+          <div class="q-btn key-btn" data-char="P">P</div>
+        </div>
+
+        <!-- ROW 2 -->
+        <div class="q-row">
+          <div class="q-btn key-btn" data-char="A">A</div>
+          <div class="q-btn key-btn" data-char="S">S</div>
+          <div class="q-btn key-btn" data-char="D">D</div>
+          <div class="q-btn key-btn" data-char="F">F</div>
+          <div class="q-btn key-btn" data-char="G">G</div>
+          <div class="q-btn key-btn" data-char="H">H</div>
+          <div class="q-btn key-btn" data-char="J">J</div>
+          <div class="q-btn key-btn" data-char="K">K</div>
+          <div class="q-btn key-btn" data-char="L">L</div>
+        </div>
+
+        <!-- ROW 3 -->
+        <div class="q-row">
+          <div class="q-btn wide">⇧</div>
+          <div class="q-btn key-btn" data-char="Z">Z</div>
+          <div class="q-btn key-btn" data-char="X">X</div>
+          <div class="q-btn key-btn" data-char="C">C</div>
+          <div class="q-btn key-btn" data-char="V">V</div>
+          <div class="q-btn key-btn" data-char="B">B</div>
+          <div class="q-btn key-btn" data-char="N">N</div>
+          <div class="q-btn key-btn" data-char="M">M</div>
+          <div class="q-btn wide">⇧</div>
+        </div>
+
+        <!-- ROW 4 -->
+        <div class="q-row">
+          <div class="q-btn wide key-btn" data-action="toNum">123</div>
+          <div class="q-btn space key-btn" data-char=" ">SPACE</div>
+          <div class="q-btn wide key-btn" data-action="backspace">⌫</div>
+          <div class="q-btn wide key-btn" data-action="enter">↵</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // TIME UPDATE
+  function updateTime() {
+    var el = document.getElementById("timeDisplay");
+    var now = new Date();
+    var month = now.getMonth() + 1;
+    var day = now.getDate();
+    var hours = now.getHours();
+    var minutes = now.getMinutes();
+    var ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    if (minutes < 10) minutes = "0" + minutes;
+    el.textContent = month + "/" + day + " " + hours + ":" + minutes + " " + ampm;
+  }
+  setInterval(updateTime, 1000);
+  updateTime();
+
+  // GPS LOCATION
+  var gpsDot = document.getElementById("gpsDot");
+  var gpsText = document.getElementById("gpsText");
+  var currentLocation = "Unknown";
+  
+  function getLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        // Success
+        function(position) {
+          var lat = position.coords.latitude.toFixed(6);
+          var lng = position.coords.longitude.toFixed(6);
+          currentLocation = lat + ", " + lng;
+          gpsText.textContent = "GPS: " + currentLocation;
+          gpsDot.className = "gps-dot active";
+        },
+        // Error
+        function(error) {
+          var errorMsg = "";
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMsg = "GPS permission denied";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMsg = "GPS unavailable";
+              break;
+            case error.TIMEOUT:
+              errorMsg = "GPS timeout";
+              break;
+          }
+          currentLocation = errorMsg;
+          gpsText.textContent = errorMsg;
+          gpsDot.className = "gps-dot error";
+        },
+        // Options
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    } else {
+      currentLocation = "GPS not supported";
+      gpsText.textContent = "GPS not supported";
+      gpsDot.className = "gps-dot error";
+    }
+  }
+  
+  // Get GPS on load
+  getLocation();
+
+  // GRID / INPUT LOGIC
+  var cells = Array.from(document.querySelectorAll(".input-cell"));
+  var activeIndex = 0;
+  var maxIndex = cells.length - 1;
+  var statusMsg = document.getElementById("statusMessage");
+
+  function setActive(index) {
+    if (index < 0) index = 0;
+    if (index > maxIndex) index = maxIndex;
+    activeIndex = index;
+    for (var i = 0; i < cells.length; i++) {
+      cells[i].classList.remove("orange");
+    }
+    cells[activeIndex].classList.add("orange");
+  }
+
+  function writeChar(ch) {
+    cells[activeIndex].textContent = ch;
+    if (activeIndex < maxIndex) {
+      setActive(activeIndex + 1);
+    }
+  }
+
+  function getBarcodeFromGrid() {
+    var barcode = "";
+    for (var i = 0; i <= maxIndex; i++) {
+      if (cells[i].textContent) {
+        barcode += cells[i].textContent;
+      } else {
+        break;
+      }
+    }
+    return barcode;
+  }
+
+  function clearGrid() {
+    for (var i = 0; i <= maxIndex; i++) {
+      cells[i].textContent = "";
+    }
+    setActive(0);
+  }
+
+  function doBackspace() {
+    if (cells[activeIndex].textContent) {
+      cells[activeIndex].textContent = "";
+    } else if (activeIndex > 0) {
+      setActive(activeIndex - 1);
+      cells[activeIndex].textContent = "";
+    }
+  }
+
+  function moveLeft() {
+    if (activeIndex > 0) setActive(activeIndex - 1);
+  }
+
+  function moveRight() {
+    if (activeIndex < maxIndex) setActive(activeIndex + 1);
+  }
+
+  function moveUp() {
+    if (activeIndex - 20 >= 0) setActive(activeIndex - 20);
+  }
+
+  function moveDown() {
+    if (activeIndex + 20 <= maxIndex) setActive(activeIndex + 20);
+  }
+
+  // XANO SEND FUNCTION
+  function sendToXano(barcode) {
+    statusMsg.className = "status-message sending";
+    statusMsg.textContent = "Sending to XANO...";
+    
+    var xhr = new XMLHttpRequest();
+    var url = "https://x8ki-letl-twmt.n7.xano.io/api:WGx5FQAG/qr_scans";
+    
+    // Prepare data with GPS location
+    var now = new Date();
+    var date = now.getFullYear() + "-" + 
+               String(now.getMonth() + 1).padStart(2, '0') + "-" + 
+               String(now.getDate()).padStart(2, '0');
+    var time = String(now.getHours()).padStart(2, '0') + ":" + 
+               String(now.getMinutes()).padStart(2, '0') + ":" + 
+               String(now.getSeconds()).padStart(2, '0');
+    
+    var data = JSON.stringify({
+      label_id: barcode,
+      barcode_type: "EAN-13",
+      status: "Scanned",
+      date: date,
+      time: time,
+      location: currentLocation, // GPS location
+      eta: date,
+      timestamp: now.toISOString()
+    });
+
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("Accept", "application/json");
+    
+    xhr.timeout = 10000;
+    
+    xhr.onload = function() {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        statusMsg.className = "status-message success";
+        statusMsg.textContent = "✓ Sent to XANO successfully!";
+        clearGrid();
+        setTimeout(function() {
+          alert("Barcode " + barcode + "\nLocation: " + currentLocation + "\nSaved to XANO");
+        }, 100);
+      } else {
+        statusMsg.className = "status-message error";
+        statusMsg.textContent = "✗ XANO error: " + xhr.status;
+        alert("XANO error: " + xhr.status);
+      }
+    };
+    
+    xhr.onerror = function() {
+      statusMsg.className = "status-message error";
+      statusMsg.textContent = "✗ Network error";
+      alert("Network error - check connection");
+    };
+    
+    xhr.ontimeout = function() {
+      statusMsg.className = "status-message error";
+      statusMsg.textContent = "✗ Timeout";
+      alert("Request timeout");
+    };
+    
+    xhr.send(data);
+  }
+
+  function doEnter() {
+    var barcode = getBarcodeFromGrid();
+    
+    if (barcode) {
+      // Refresh GPS before sending
+      getLocation();
+      setTimeout(function() {
+        sendToXano(barcode);
+      }, 500);
+    } else {
+      statusMsg.className = "status-message error";
+      statusMsg.textContent = "No barcode entered";
+    }
+  }
+
+  function doEsc() {
+    clearGrid();
+    statusMsg.className = "status-message";
+    statusMsg.textContent = "Ready";
+  }
+
+  // KEYPAD SWITCHING
+  var numpad = document.getElementById("keypadNum");
+  var qwerty = document.getElementById("keypadQwerty");
+
+  function showNumPad() {
+    numpad.style.display = "flex";
+    qwerty.style.display = "none";
+  }
+
+  function showQwertyPad() {
+    numpad.style.display = "none";
+    qwerty.style.display = "flex";
+  }
+
+  // EVENT LISTENERS
+  var keyButtons = document.querySelectorAll(".key-btn");
+  for (var i = 0; i < keyButtons.length; i++) {
+    keyButtons[i].addEventListener("click", function(e) {
+      var btn = this;
+      var char = btn.dataset.char;
+      var action = btn.dataset.action;
+
+      if (char) {
+        writeChar(char);
+      } else if (action) {
+        switch(action) {
+          case "left": moveLeft(); break;
+          case "right": moveRight(); break;
+          case "up": moveUp(); break;
+          case "down": moveDown(); break;
+          case "backspace": doBackspace(); break;
+          case "enter": doEnter(); break;
+          case "esc": doEsc(); break;
+          case "toQwerty": showQwertyPad(); break;
+          case "toNum": showNumPad(); break;
+        }
+      }
+    });
+  }
+
+  // Initialize
+  setActive(0);
+  showNumPad();
+</script>
+</body>
+</html>
