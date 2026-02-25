@@ -231,6 +231,9 @@
     padding: 0 8px;
     font-size: 13px;
     font-weight: bold;
+    position: fixed;
+    bottom: 0;
+    z-index: 20;
   }
 
   .footer-icons {
@@ -248,6 +251,7 @@
 
   .keypad-wrapper {
     width: 360px;
+    margin-bottom: 28px;
   }
 
   .keypad-num {
@@ -375,6 +379,10 @@
     cursor: pointer;
   }
   
+  .scanner-close:active {
+    background: rgba(255,255,255,0.4);
+  }
+  
   .scanner-content {
     flex: 1;
     background: #000;
@@ -429,6 +437,10 @@
     font-size: 16px;
     padding: 10px 30px;
     cursor: pointer;
+  }
+  
+  .scanner-cancel:active {
+    background: #6b0000;
   }
   
   .scanner-error {
@@ -789,7 +801,7 @@
     if (activeIndex + 20 <= maxIndex) setActive(activeIndex + 20);
   }
 
-  // XANO ENDPOINT - NOW ACTIVE
+  // XANO ENDPOINT - WORKING DIRECTLY
   var API_URL = "https://x8ki-letl-twmt.n7.xano.io/api:WGx5FQAG/qr_scans";
   
   function sendToXano(barcode) {
@@ -812,6 +824,7 @@
                String(now.getMinutes()).padStart(2, '0') + ":" + 
                String(now.getSeconds()).padStart(2, '0');
     
+    // SIMPLE JSON - MATCHES YOUR XANO TABLE
     var data = {
       label_id: barcode,
       barcode_type: "EAN-13",
@@ -846,8 +859,13 @@
       } else {
         statusMsg.className = "status-message error";
         statusMsg.textContent = "✗ XANO Error " + xhr.status;
-        alert("❌ XANO ERROR " + xhr.status + 
-              "\n\nResponse: " + xhr.responseText);
+        
+        // Show detailed error
+        var errorText = "❌ XANO ERROR " + xhr.status;
+        if (xhr.responseText) {
+          errorText += "\n\nResponse: " + xhr.responseText;
+        }
+        alert(errorText);
       }
     };
     
@@ -855,7 +873,7 @@
       console.log("Network error");
       statusMsg.className = "status-message error";
       statusMsg.textContent = "✗ Network error";
-      alert("❌ NETWORK ERROR\nCannot reach XANO\n\nCheck:\n• Internet connection\n• XANO endpoint is live");
+      alert("❌ NETWORK ERROR\nCannot reach XANO\n\nCheck:\n• Internet connection\n• XANO endpoint is live\n• CORS settings");
     };
     
     xhr.ontimeout = function() {
@@ -980,6 +998,7 @@
     });
   }
 
+  // Initialize
   setActive(0);
   showNumPad();
 </script>
