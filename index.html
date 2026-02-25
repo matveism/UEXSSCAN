@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport"
       content="width=360, height=640, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<!-- ZXing for scanning -->
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -57,6 +59,35 @@
     font-family: Arial, sans-serif;
     height: calc(640px - 32px);
     overflow-y: auto;
+  }
+
+  /* SCAN BUTTON - Dark green shrunk button */
+  .scan-button-container {
+    width: 360px;
+    padding: 4px 8px;
+    background: #A7C6E2;
+  }
+  
+  .scan-btn {
+    width: 100%;
+    height: 32px;
+    background: #2E7D32;  /* Dark green */
+    border: 1px solid #1B5E20;
+    border-radius: 4px;
+    color: #fff;
+    font-weight: bold;
+    font-size: 16px;
+    text-align: center;
+    line-height: 32px;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 0 2px 2px rgba(0,0,0,0.2);
+  }
+  
+  .scan-btn:active {
+    background: #1B5E20;
   }
 
   /* Scan/key-in barcode strip */
@@ -317,6 +348,130 @@
   .q-btn.space {
     width: 96px;
   }
+
+  /* SCANNER MODAL */
+  .scanner-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 360px;
+    height: 640px;
+    background: #000;
+    z-index: 9999;
+    flex-direction: column;
+  }
+  
+  .scanner-modal.active {
+    display: flex;
+  }
+  
+  .scanner-header {
+    width: 360px;
+    height: 32px;
+    background: #0b6fd8;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+  }
+  
+  .scanner-title {
+    font-size: 14px;
+    font-weight: bold;
+  }
+  
+  .scanner-close {
+    width: 24px;
+    height: 24px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  
+  .scanner-close:active {
+    background: rgba(255,255,255,0.4);
+  }
+  
+  .scanner-content {
+    flex: 1;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    position: relative;
+  }
+  
+  #scanner-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .scanner-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  
+  .scanner-frame {
+    width: 280px;
+    height: 140px;
+    border: 2px solid #0b6fd8;
+    box-shadow: 0 0 0 1000px rgba(0,0,0,0.5);
+  }
+  
+  .scanner-footer {
+    width: 360px;
+    height: 60px;
+    background: #0b6fd8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .scanner-cancel {
+    background: #8B0000;
+    border: 1px solid #5a0000;
+    border-radius: 4px;
+    color: #fff;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 10px 30px;
+    cursor: pointer;
+  }
+  
+  .scanner-cancel:active {
+    background: #6b0000;
+  }
+  
+  .scanner-error {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    display: none;
+    z-index: 100;
+  }
 </style>
 </head>
 
@@ -335,6 +490,11 @@
 
   <!-- EVERYTHING BELOW HEADER -->
   <div class="under-area">
+    <!-- SCAN BUTTON - Dark green shrunk -->
+    <div class="scan-button-container">
+      <div class="scan-btn" id="scanBtn">SCAN</div>
+    </div>
+    
     <!-- Scan/key-in barcode -->
     <div class="under-header">
       Scan/key-in barcode
@@ -392,7 +552,7 @@
       SELECT STATUS
     </div>
 
-    <!-- STATUS DROPDOWN - FIXED: NOW VISIBLE -->
+    <!-- STATUS DROPDOWN -->
     <div class="status-container">
       <select class="status-select" id="statusSelect">
         <option value="">-- Select Status --</option>
@@ -431,7 +591,7 @@
         <div class="footer-icon"></div>
         <div class="footer-icon"></div>
       </div>
-      <div id="timeDisplay">02/24 11:25 PM</div>
+      <div id="timeDisplay"></div>
     </div>
 
     <!-- KEYPADS -->
@@ -532,6 +692,28 @@
     </div>
   </div>
 
+  <!-- SCANNER MODAL -->
+  <div class="scanner-modal" id="scannerModal">
+    <div class="scanner-header">
+      <div class="scanner-title">Scan Barcode</div>
+      <div class="scanner-close" id="closeScanner">✕</div>
+    </div>
+    
+    <div class="scanner-content">
+      <video id="scanner-video"></video>
+      <div class="scanner-overlay">
+        <div class="scanner-frame"></div>
+      </div>
+      <div class="scanner-error" id="scannerError">
+        Camera error or permission denied
+      </div>
+    </div>
+    
+    <div class="scanner-footer">
+      <div class="scanner-cancel" id="cancelScan">CANCEL</div>
+    </div>
+  </div>
+
 <script>
   // TIME UPDATE
   function updateTime() {
@@ -621,6 +803,14 @@
     }
   }
 
+  function writeBarcode(barcode) {
+    // Fill grid cells with barcode characters
+    for (var i = 0; i < barcode.length && i <= maxIndex; i++) {
+      cells[i].textContent = barcode.charAt(i);
+    }
+    setActive(0);
+  }
+
   function getBarcodeFromGrid() {
     var barcode = "";
     for (var i = 0; i <= maxIndex; i++) {
@@ -665,7 +855,7 @@
     if (activeIndex + 20 <= maxIndex) setActive(activeIndex + 20);
   }
 
-  // XANO SEND FUNCTION - FIXED for CORS
+  // XANO SEND FUNCTION - Using fetch with proper CORS
   function sendToXano(barcode) {
     var selectedStatus = statusSelect.value;
     
@@ -678,9 +868,6 @@
     statusMsg.className = "status-message sending";
     statusMsg.textContent = "Sending to XANO...";
     
-    var xhr = new XMLHttpRequest();
-    var url = "https://x8ki-letl-twmt.n7.xano.io/api:WGx5FQAG/qr_scans";
-    
     var now = new Date();
     var date = now.getFullYear() + "-" + 
                String(now.getMonth() + 1).padStart(2, '0') + "-" + 
@@ -689,7 +876,7 @@
                String(now.getMinutes()).padStart(2, '0') + ":" + 
                String(now.getSeconds()).padStart(2, '0');
     
-    var data = JSON.stringify({
+    var data = {
       label_id: barcode,
       barcode_type: "EAN-13",
       status: selectedStatus,
@@ -698,43 +885,37 @@
       location: currentLocation,
       eta: date,
       timestamp: now.toISOString()
-    });
+    };
 
-    xhr.open("POST", url, true);
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.setRequestHeader("Accept", "application/json");
-    
-    xhr.timeout = 15000;
-    
-    xhr.onload = function() {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        statusMsg.className = "status-message success";
-        statusMsg.textContent = "✓ Saved to XANO!";
-        clearGrid();
-        alert("SUCCESS!\nBarcode: " + barcode + 
-              "\nStatus: " + selectedStatus +
-              "\nLocation: " + currentLocation +
-              "\nSaved to XANO");
+    // Using fetch with proper CORS headers
+    fetch("https://x8ki-letl-twmt.n7.xano.io/api:WGx5FQAG/qr_scans", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify(data)
+    })
+    .then(function(response) {
+      if (response.ok) {
+        return response.json();
       } else {
-        statusMsg.className = "status-message error";
-        statusMsg.textContent = "✗ XANO error: " + xhr.status;
-        alert("XANO Error " + xhr.status + "\n" + xhr.responseText);
+        throw new Error("HTTP " + response.status);
       }
-    };
-    
-    xhr.onerror = function() {
+    })
+    .then(function(result) {
+      statusMsg.className = "status-message success";
+      statusMsg.textContent = "✓ Saved to XANO!";
+      clearGrid();
+      alert("SUCCESS!\nBarcode: " + barcode + 
+            "\nStatus: " + selectedStatus +
+            "\nLocation: " + currentLocation);
+    })
+    .catch(function(error) {
       statusMsg.className = "status-message error";
-      statusMsg.textContent = "✗ Network error - check connection";
-      alert("NETWORK ERROR\nCannot reach XANO\n\nCheck:\n• Internet connection\n• CORS settings\n• Endpoint URL");
-    };
-    
-    xhr.ontimeout = function() {
-      statusMsg.className = "status-message error";
-      statusMsg.textContent = "✗ Request timeout";
-      alert("TIMEOUT\nXANO server not responding");
-    };
-    
-    xhr.send(data);
+      statusMsg.textContent = "✗ Error: " + error.message;
+      alert("ERROR\n" + error.message + "\n\nCheck:\n• Internet connection\n• XANO endpoint");
+    });
   }
 
   function doEnter() {
@@ -756,6 +937,66 @@
     statusMsg.className = "status-message";
     statusMsg.textContent = "Ready";
   }
+
+  // SCANNER FUNCTIONALITY with ZXing
+  var scannerModal = document.getElementById("scannerModal");
+  var scanBtn = document.getElementById("scanBtn");
+  var closeScanner = document.getElementById("closeScanner");
+  var cancelScan = document.getElementById("cancelScan");
+  var scannerError = document.getElementById("scannerError");
+  var video = document.getElementById("scanner-video");
+  
+  var codeReader = null;
+  var isScanning = false;
+  
+  scanBtn.addEventListener("click", function() {
+    scannerModal.classList.add("active");
+    scannerError.style.display = "none";
+    startScanner();
+  });
+  
+  function startScanner() {
+    if (isScanning) return;
+    
+    try {
+      codeReader = new ZXing.BrowserMultiFormatReader();
+      isScanning = true;
+      
+      codeReader.decodeFromVideoDevice(null, video, function(result, error) {
+        if (result) {
+          // Barcode found!
+          var barcode = result.text;
+          writeBarcode(barcode);
+          stopScanner();
+          scannerModal.classList.remove("active");
+        }
+        if (error && !(error instanceof ZXing.NotFoundException)) {
+          scannerError.style.display = "block";
+          scannerError.textContent = "Camera error: " + error.message;
+        }
+      });
+    } catch (e) {
+      scannerError.style.display = "block";
+      scannerError.textContent = "Scanner initialization failed";
+      isScanning = false;
+    }
+  }
+  
+  function stopScanner() {
+    if (codeReader) {
+      codeReader.reset();
+      codeReader = null;
+    }
+    isScanning = false;
+  }
+  
+  function closeScannerModal() {
+    stopScanner();
+    scannerModal.classList.remove("active");
+  }
+  
+  closeScanner.addEventListener("click", closeScannerModal);
+  cancelScan.addEventListener("click", closeScannerModal);
 
   // KEYPAD SWITCHING
   var numpad = document.getElementById("keypadNum");
