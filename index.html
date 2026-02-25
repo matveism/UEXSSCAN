@@ -18,7 +18,6 @@
     font-family: Arial, sans-serif;
   }
 
-  /* HEADER (blue) */
   .header {
     width: 360px;
     height: 32px;
@@ -51,7 +50,6 @@
     box-shadow: 0 6px 0 #fff, 0 -6px 0 #fff;
   }
 
-  /* EVERYTHING UNDER HEADER */
   .under-area {
     width: 360px;
     background: #A7C6E2;
@@ -61,7 +59,6 @@
     overflow-y: auto;
   }
 
-  /* SCAN BUTTON - Dark green shrunk button */
   .scan-button-container {
     width: 360px;
     padding: 4px 8px;
@@ -71,7 +68,7 @@
   .scan-btn {
     width: 100%;
     height: 32px;
-    background: #2E7D32;  /* Dark green */
+    background: #2E7D32;
     border: 1px solid #1B5E20;
     border-radius: 4px;
     color: #fff;
@@ -79,18 +76,13 @@
     font-size: 16px;
     text-align: center;
     line-height: 32px;
-    letter-spacing: 1px;
-    text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
     cursor: pointer;
-    user-select: none;
-    box-shadow: 0 2px 2px rgba(0,0,0,0.2);
   }
   
   .scan-btn:active {
     background: #1B5E20;
   }
 
-  /* Scan/key-in barcode strip */
   .under-header {
     width: 360px;
     height: 26px;
@@ -103,7 +95,6 @@
     margin-top: 2px;
   }
 
-  /* GRID */
   .grid {
     width: 360px;
     margin-top: 4px;
@@ -128,7 +119,6 @@
   .orange { background: #F49A16; }
   .gray { background: #A9A9A9; }
 
-  /* SELECT STATUS HEADER */
   .select-status-header {
     width: 360px;
     height: 32px;
@@ -142,7 +132,6 @@
     font-size: 14px;
   }
 
-  /* STATUS DROPDOWN */
   .status-container {
     width: 360px;
     padding: 8px;
@@ -162,7 +151,6 @@
     cursor: pointer;
   }
 
-  /* GPS STATUS */
   .gps-status {
     width: 360px;
     padding: 4px 8px;
@@ -191,7 +179,6 @@
     background: #dc3545;
   }
 
-  /* LABEL ID BAR */
   .label-bar {
     width: 360px;
     height: 26px;
@@ -205,7 +192,6 @@
     margin-top: 2px;
   }
 
-  /* STATUS MESSAGE */
   .status-message {
     width: 360px;
     padding: 8px;
@@ -220,7 +206,6 @@
   .error { color: #dc3545; }
   .sending { color: #0b6fd8; }
 
-  /* FULL-WIDTH DARKER BOX */
   .full-box {
     width: 360px;
     height: 40px;
@@ -235,7 +220,6 @@
     color: #000;
   }
 
-  /* FOOTER BAR */
   .footer {
     width: 360px;
     height: 28px;
@@ -262,12 +246,10 @@
     border-radius: 2px;
   }
 
-  /* KEYPADS WRAPPER */
   .keypad-wrapper {
     width: 360px;
   }
 
-  /* NUMERIC KEYPAD */
   .keypad-num {
     width: 360px;
     display: flex;
@@ -316,7 +298,6 @@
 
   .grid-btn { font-size: 18px; }
 
-  /* COMPACT QWERTY KEYPAD */
   .keypad-qwerty {
     width: 360px;
     display: none;
@@ -349,7 +330,6 @@
     width: 96px;
   }
 
-  /* SCANNER MODAL */
   .scanner-modal {
     display: none;
     position: fixed;
@@ -393,10 +373,6 @@
     font-size: 18px;
     font-weight: bold;
     cursor: pointer;
-  }
-  
-  .scanner-close:active {
-    background: rgba(255,255,255,0.4);
   }
   
   .scanner-content {
@@ -455,10 +431,6 @@
     cursor: pointer;
   }
   
-  .scanner-cancel:active {
-    background: #6b0000;
-  }
-  
   .scanner-error {
     position: absolute;
     top: 50%;
@@ -476,7 +448,6 @@
 </head>
 
 <body>
-  <!-- HEADER -->
   <div class="header">
     <div class="title">Scan Barcode</div>
     <div class="icons">
@@ -488,21 +459,16 @@
     </div>
   </div>
 
-  <!-- EVERYTHING BELOW HEADER -->
   <div class="under-area">
-    <!-- SCAN BUTTON - Dark green shrunk -->
     <div class="scan-button-container">
       <div class="scan-btn" id="scanBtn">SCAN</div>
     </div>
     
-    <!-- Scan/key-in barcode -->
     <div class="under-header">
       Scan/key-in barcode
     </div>
 
-    <!-- GRID (3 ROWS × 20 CELLS) -->
     <div class="grid">
-      <!-- ROW 1 (ACTIVE INPUT ROW) -->
       <div class="row" id="inputRow">
         <div class="cell orange input-cell" data-index="0"></div>
         <div class="cell input-cell" data-index="1"></div>
@@ -526,7 +492,6 @@
         <div class="cell input-cell" data-index="19"></div>
       </div>
 
-      <!-- ROW 2 -->
       <div class="row">
         <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
         <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
@@ -535,7 +500,6 @@
         <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
       </div>
 
-      <!-- ROW 3 -->
       <div class="row">
         <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
         <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
@@ -547,12 +511,10 @@
       </div>
     </div>
 
-    <!-- SELECT STATUS HEADER -->
     <div class="select-status-header">
       SELECT STATUS
     </div>
 
-    <!-- STATUS DROPDOWN -->
     <div class="status-container">
       <select class="status-select" id="statusSelect">
         <option value="">-- Select Status --</option>
@@ -567,24 +529,19 @@
       </select>
     </div>
 
-    <!-- GPS STATUS -->
     <div class="gps-status" id="gpsStatus">
       <span class="gps-dot" id="gpsDot"></span>
       <span id="gpsText">Acquiring GPS location...</span>
     </div>
 
-    <!-- LABEL ID BAR -->
     <div class="label-bar">
       |#| LABEL ID |
     </div>
 
-    <!-- STATUS MESSAGE -->
     <div id="statusMessage" class="status-message">Ready</div>
 
-    <!-- FULL-WIDTH DARKER BOX -->
     <div class="full-box"></div>
 
-    <!-- FOOTER BAR -->
     <div class="footer">
       <div class="footer-icons">
         <div class="footer-icon"></div>
@@ -594,11 +551,8 @@
       <div id="timeDisplay"></div>
     </div>
 
-    <!-- KEYPADS -->
     <div class="keypad-wrapper">
-      <!-- NUMERIC KEYPAD -->
       <div class="keypad-num" id="keypadNum">
-        <!-- LEFT COLUMN -->
         <div class="col">
           <div class="btn key-btn" data-action="left">←</div>
           <div class="btn key-btn" data-action="right">→</div>
@@ -606,7 +560,6 @@
           <div class="btn key-btn" data-action="toQwerty">ABC SYM</div>
         </div>
 
-        <!-- CENTER GRID -->
         <div class="center-col">
           <div class="center-row">
             <div class="grid-btn key-btn" data-char="1">1</div>
@@ -630,7 +583,6 @@
           </div>
         </div>
 
-        <!-- RIGHT COLUMN -->
         <div class="col">
           <div class="btn key-btn" data-action="up">↑</div>
           <div class="btn key-btn" data-action="down">↓</div>
@@ -639,9 +591,7 @@
         </div>
       </div>
 
-      <!-- COMPACT QWERTY KEYPAD -->
       <div class="keypad-qwerty" id="keypadQwerty">
-        <!-- ROW 1 -->
         <div class="q-row">
           <div class="q-btn key-btn" data-char="Q">Q</div>
           <div class="q-btn key-btn" data-char="W">W</div>
@@ -655,7 +605,6 @@
           <div class="q-btn key-btn" data-char="P">P</div>
         </div>
 
-        <!-- ROW 2 -->
         <div class="q-row">
           <div class="q-btn key-btn" data-char="A">A</div>
           <div class="q-btn key-btn" data-char="S">S</div>
@@ -668,7 +617,6 @@
           <div class="q-btn key-btn" data-char="L">L</div>
         </div>
 
-        <!-- ROW 3 -->
         <div class="q-row">
           <div class="q-btn wide">⇧</div>
           <div class="q-btn key-btn" data-char="Z">Z</div>
@@ -681,7 +629,6 @@
           <div class="q-btn wide">⇧</div>
         </div>
 
-        <!-- ROW 4 -->
         <div class="q-row">
           <div class="q-btn wide key-btn" data-action="toNum">123</div>
           <div class="q-btn space key-btn" data-char=" ">SPACE</div>
@@ -692,7 +639,6 @@
     </div>
   </div>
 
-  <!-- SCANNER MODAL -->
   <div class="scanner-modal" id="scannerModal">
     <div class="scanner-header">
       <div class="scanner-title">Scan Barcode</div>
@@ -748,18 +694,7 @@
           gpsDot.className = "gps-dot active";
         },
         function(error) {
-          var errorMsg = "";
-          switch(error.code) {
-            case error.PERMISSION_DENIED:
-              errorMsg = "GPS permission denied";
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMsg = "GPS unavailable";
-              break;
-            case error.TIMEOUT:
-              errorMsg = "GPS timeout";
-              break;
-          }
+          var errorMsg = "GPS unavailable";
           currentLocation = errorMsg;
           gpsText.textContent = errorMsg;
           gpsDot.className = "gps-dot error";
@@ -779,7 +714,7 @@
   
   getLocation();
 
-  // GRID / INPUT LOGIC
+  // GRID LOGIC
   var cells = Array.from(document.querySelectorAll(".input-cell"));
   var activeIndex = 0;
   var maxIndex = cells.length - 1;
@@ -804,7 +739,6 @@
   }
 
   function writeBarcode(barcode) {
-    // Fill grid cells with barcode characters
     for (var i = 0; i < barcode.length && i <= maxIndex; i++) {
       cells[i].textContent = barcode.charAt(i);
     }
@@ -855,7 +789,9 @@
     if (activeIndex + 20 <= maxIndex) setActive(activeIndex + 20);
   }
 
-  // XANO SEND FUNCTION - Using fetch with proper CORS
+  // XANO ENDPOINT - NOW ACTIVE
+  var API_URL = "https://x8ki-letl-twmt.n7.xano.io/api:WGx5FQAG/qr_scans";
+  
   function sendToXano(barcode) {
     var selectedStatus = statusSelect.value;
     
@@ -887,35 +823,48 @@
       timestamp: now.toISOString()
     };
 
-    // Using fetch with proper CORS headers
-    fetch("https://x8ki-letl-twmt.n7.xano.io/api:WGx5FQAG/qr_scans", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify(data)
-    })
-    .then(function(response) {
-      if (response.ok) {
-        return response.json();
+    console.log("SENDING TO XANO:", data);
+    
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", API_URL, true);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("Accept", "application/json");
+    
+    xhr.timeout = 15000;
+    
+    xhr.onload = function() {
+      console.log("XANO Response:", xhr.status, xhr.responseText);
+      
+      if (xhr.status >= 200 && xhr.status < 300) {
+        statusMsg.className = "status-message success";
+        statusMsg.textContent = "✓ SAVED TO XANO!";
+        alert("✅ XANO SUCCESS\n\nBarcode: " + barcode + 
+              "\nStatus: " + selectedStatus +
+              "\nLocation: " + currentLocation +
+              "\n\nData saved to database");
+        clearGrid();
       } else {
-        throw new Error("HTTP " + response.status);
+        statusMsg.className = "status-message error";
+        statusMsg.textContent = "✗ XANO Error " + xhr.status;
+        alert("❌ XANO ERROR " + xhr.status + 
+              "\n\nResponse: " + xhr.responseText);
       }
-    })
-    .then(function(result) {
-      statusMsg.className = "status-message success";
-      statusMsg.textContent = "✓ Saved to XANO!";
-      clearGrid();
-      alert("SUCCESS!\nBarcode: " + barcode + 
-            "\nStatus: " + selectedStatus +
-            "\nLocation: " + currentLocation);
-    })
-    .catch(function(error) {
+    };
+    
+    xhr.onerror = function() {
+      console.log("Network error");
       statusMsg.className = "status-message error";
-      statusMsg.textContent = "✗ Error: " + error.message;
-      alert("ERROR\n" + error.message + "\n\nCheck:\n• Internet connection\n• XANO endpoint");
-    });
+      statusMsg.textContent = "✗ Network error";
+      alert("❌ NETWORK ERROR\nCannot reach XANO\n\nCheck:\n• Internet connection\n• XANO endpoint is live");
+    };
+    
+    xhr.ontimeout = function() {
+      statusMsg.className = "status-message error";
+      statusMsg.textContent = "✗ Timeout";
+      alert("❌ TIMEOUT\nXANO server not responding");
+    };
+    
+    xhr.send(JSON.stringify(data));
   }
 
   function doEnter() {
@@ -938,7 +887,7 @@
     statusMsg.textContent = "Ready";
   }
 
-  // SCANNER FUNCTIONALITY with ZXing
+  // SCANNER
   var scannerModal = document.getElementById("scannerModal");
   var scanBtn = document.getElementById("scanBtn");
   var closeScanner = document.getElementById("closeScanner");
@@ -947,7 +896,6 @@
   var video = document.getElementById("scanner-video");
   
   var codeReader = null;
-  var isScanning = false;
   
   scanBtn.addEventListener("click", function() {
     scannerModal.classList.add("active");
@@ -956,15 +904,11 @@
   });
   
   function startScanner() {
-    if (isScanning) return;
-    
     try {
       codeReader = new ZXing.BrowserMultiFormatReader();
-      isScanning = true;
       
       codeReader.decodeFromVideoDevice(null, video, function(result, error) {
         if (result) {
-          // Barcode found!
           var barcode = result.text;
           writeBarcode(barcode);
           stopScanner();
@@ -972,13 +916,12 @@
         }
         if (error && !(error instanceof ZXing.NotFoundException)) {
           scannerError.style.display = "block";
-          scannerError.textContent = "Camera error: " + error.message;
+          scannerError.textContent = "Camera error";
         }
       });
     } catch (e) {
       scannerError.style.display = "block";
-      scannerError.textContent = "Scanner initialization failed";
-      isScanning = false;
+      scannerError.textContent = "Scanner failed";
     }
   }
   
@@ -987,7 +930,6 @@
       codeReader.reset();
       codeReader = null;
     }
-    isScanning = false;
   }
   
   function closeScannerModal() {
@@ -1038,7 +980,6 @@
     });
   }
 
-  // Initialize
   setActive(0);
   showNumPad();
 </script>
