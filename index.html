@@ -49,12 +49,14 @@
     box-shadow: 0 6px 0 #fff, 0 -6px 0 #fff;
   }
 
-  /* EVERYTHING UNDER HEADER SHARES SAME BACKGROUND */
+  /* EVERYTHING UNDER HEADER */
   .under-area {
     width: 360px;
     background: #A7C6E2;
     padding-bottom: 6px;
-    font-family: "Courier New", monospace;
+    font-family: Arial, sans-serif;
+    height: calc(640px - 32px);
+    overflow-y: auto;
   }
 
   /* Scan/key-in barcode strip */
@@ -94,6 +96,40 @@
 
   .orange { background: #F49A16; }
   .gray { background: #A9A9A9; }
+
+  /* SELECT STATUS HEADER */
+  .select-status-header {
+    width: 360px;
+    height: 32px;
+    background: #0b6fd8;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    margin-top: 8px;
+    font-weight: bold;
+    font-size: 14px;
+  }
+
+  /* STATUS DROPDOWN */
+  .status-container {
+    width: 360px;
+    padding: 8px;
+    background: #A7C6E2;
+  }
+  
+  .status-select {
+    width: 100%;
+    height: 40px;
+    background: #fff;
+    border: 2px solid #0b6fd8;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 0 8px;
+    color: #000;
+    cursor: pointer;
+  }
 
   /* GPS STATUS */
   .gps-status {
@@ -138,6 +174,21 @@
     margin-top: 2px;
   }
 
+  /* STATUS MESSAGE */
+  .status-message {
+    width: 360px;
+    padding: 8px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 14px;
+    background: #A7C6E2;
+    min-height: 40px;
+  }
+  
+  .success { color: #28a745; }
+  .error { color: #dc3545; }
+  .sending { color: #0b6fd8; }
+
   /* FULL-WIDTH DARKER BOX */
   .full-box {
     width: 360px;
@@ -153,7 +204,7 @@
     color: #000;
   }
 
-  /* FOOTER BAR (icons + time) */
+  /* FOOTER BAR */
   .footer {
     width: 360px;
     height: 28px;
@@ -163,7 +214,6 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 8px;
-    margin-top: 0;
     font-size: 13px;
     font-weight: bold;
   }
@@ -235,7 +285,7 @@
 
   .grid-btn { font-size: 18px; }
 
-  /* COMPACT QWERTY KEYPAD - PERFECT FIT 360px */
+  /* COMPACT QWERTY KEYPAD */
   .keypad-qwerty {
     width: 360px;
     display: none;
@@ -267,20 +317,6 @@
   .q-btn.space {
     width: 96px;
   }
-  
-  /* Status message */
-  .status-message {
-    width: 360px;
-    padding: 4px 8px;
-    text-align: center;
-    font-weight: bold;
-    font-size: 14px;
-    background: #A7C6E2;
-  }
-  
-  .success { color: #28a745; }
-  .error { color: #dc3545; }
-  .sending { color: #0b6fd8; }
 </style>
 </head>
 
@@ -349,6 +385,26 @@
         <div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div>
         <div class="cell gray"></div><div class="cell gray"></div>
       </div>
+    </div>
+
+    <!-- SELECT STATUS HEADER -->
+    <div class="select-status-header">
+      SELECT STATUS
+    </div>
+
+    <!-- STATUS DROPDOWN - FIXED: NOW VISIBLE -->
+    <div class="status-container">
+      <select class="status-select" id="statusSelect">
+        <option value="">-- Select Status --</option>
+        <option value="Item Booked">Item Booked</option>
+        <option value="Item Bagged">Item Bagged</option>
+        <option value="Item Dispatched">Item Dispatched</option>
+        <option value="Item Received">Item Received</option>
+        <option value="In-Transit">In-Transit</option>
+        <option value="Item Received at Delivery Office">Item Received at Delivery Office</option>
+        <option value="Out for Delivery">Out for Delivery</option>
+        <option value="Delivered">Delivered</option>
+      </select>
     </div>
 
     <!-- GPS STATUS -->
@@ -423,7 +479,7 @@
         </div>
       </div>
 
-      <!-- COMPACT QWERTY KEYPAD - PERFECT FIT -->
+      <!-- COMPACT QWERTY KEYPAD -->
       <div class="keypad-qwerty" id="keypadQwerty">
         <!-- ROW 1 -->
         <div class="q-row">
@@ -502,7 +558,6 @@
   function getLocation() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        // Success
         function(position) {
           var lat = position.coords.latitude.toFixed(6);
           var lng = position.coords.longitude.toFixed(6);
@@ -510,7 +565,6 @@
           gpsText.textContent = "GPS: " + currentLocation;
           gpsDot.className = "gps-dot active";
         },
-        // Error
         function(error) {
           var errorMsg = "";
           switch(error.code) {
@@ -528,7 +582,6 @@
           gpsText.textContent = errorMsg;
           gpsDot.className = "gps-dot error";
         },
-        // Options
         {
           enableHighAccuracy: true,
           timeout: 10000,
@@ -542,7 +595,6 @@
     }
   }
   
-  // Get GPS on load
   getLocation();
 
   // GRID / INPUT LOGIC
@@ -550,6 +602,7 @@
   var activeIndex = 0;
   var maxIndex = cells.length - 1;
   var statusMsg = document.getElementById("statusMessage");
+  var statusSelect = document.getElementById("statusSelect");
 
   function setActive(index) {
     if (index < 0) index = 0;
@@ -612,15 +665,22 @@
     if (activeIndex + 20 <= maxIndex) setActive(activeIndex + 20);
   }
 
-  // XANO SEND FUNCTION
+  // XANO SEND FUNCTION - FIXED for CORS
   function sendToXano(barcode) {
+    var selectedStatus = statusSelect.value;
+    
+    if (!selectedStatus) {
+      statusMsg.className = "status-message error";
+      statusMsg.textContent = "Please select a status first";
+      return;
+    }
+    
     statusMsg.className = "status-message sending";
     statusMsg.textContent = "Sending to XANO...";
     
     var xhr = new XMLHttpRequest();
     var url = "https://x8ki-letl-twmt.n7.xano.io/api:WGx5FQAG/qr_scans";
     
-    // Prepare data with GPS location
     var now = new Date();
     var date = now.getFullYear() + "-" + 
                String(now.getMonth() + 1).padStart(2, '0') + "-" + 
@@ -632,10 +692,10 @@
     var data = JSON.stringify({
       label_id: barcode,
       barcode_type: "EAN-13",
-      status: "Scanned",
+      status: selectedStatus,
       date: date,
       time: time,
-      location: currentLocation, // GPS location
+      location: currentLocation,
       eta: date,
       timestamp: now.toISOString()
     });
@@ -644,33 +704,34 @@
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.setRequestHeader("Accept", "application/json");
     
-    xhr.timeout = 10000;
+    xhr.timeout = 15000;
     
     xhr.onload = function() {
       if (xhr.status >= 200 && xhr.status < 300) {
         statusMsg.className = "status-message success";
-        statusMsg.textContent = "✓ Sent to XANO successfully!";
+        statusMsg.textContent = "✓ Saved to XANO!";
         clearGrid();
-        setTimeout(function() {
-          alert("Barcode " + barcode + "\nLocation: " + currentLocation + "\nSaved to XANO");
-        }, 100);
+        alert("SUCCESS!\nBarcode: " + barcode + 
+              "\nStatus: " + selectedStatus +
+              "\nLocation: " + currentLocation +
+              "\nSaved to XANO");
       } else {
         statusMsg.className = "status-message error";
         statusMsg.textContent = "✗ XANO error: " + xhr.status;
-        alert("XANO error: " + xhr.status);
+        alert("XANO Error " + xhr.status + "\n" + xhr.responseText);
       }
     };
     
     xhr.onerror = function() {
       statusMsg.className = "status-message error";
-      statusMsg.textContent = "✗ Network error";
-      alert("Network error - check connection");
+      statusMsg.textContent = "✗ Network error - check connection";
+      alert("NETWORK ERROR\nCannot reach XANO\n\nCheck:\n• Internet connection\n• CORS settings\n• Endpoint URL");
     };
     
     xhr.ontimeout = function() {
       statusMsg.className = "status-message error";
-      statusMsg.textContent = "✗ Timeout";
-      alert("Request timeout");
+      statusMsg.textContent = "✗ Request timeout";
+      alert("TIMEOUT\nXANO server not responding");
     };
     
     xhr.send(data);
@@ -680,8 +741,7 @@
     var barcode = getBarcodeFromGrid();
     
     if (barcode) {
-      // Refresh GPS before sending
-      getLocation();
+      getLocation(); // Refresh GPS
       setTimeout(function() {
         sendToXano(barcode);
       }, 500);
