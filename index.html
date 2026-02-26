@@ -93,7 +93,7 @@
 
     <div class="gps-status" id="gpsStatus">
       <span class="gps-dot" id="gpsDot"></span>
-      <span id="gpsText">Acquiring GPS...</span>
+      <span id="gpsText">Getting location details...</span>
     </div>
 
     <div class="label-bar">|#| LABEL ID |</div>
@@ -147,26 +147,84 @@
   setInterval(updateTime, 1000);
   updateTime();
 
-  // GPS LOCATION
+  // =============================================
+  // LOCATION with reverse geocoding (city, state, zip)
+  // =============================================
   var gpsDot = document.getElementById("gpsDot");
   var gpsText = document.getElementById("gpsText");
-  var currentLocation = "Unknown";
-  
+  var currentCityStateZip = "Acquiring location..."; // default text
+  var locationDetails = {
+    city: "",
+    state: "",
+    zip: "",
+    full: "Unknown"
+  };
+
+  // Use reverse geocoding via OpenStreetMap (no API key required)
+  function fetchAddressFromCoords(lat, lon) {
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`)
+      .then(response => response.json())
+      .then(data => {
+        console.log("Geocoding response:", data);
+        if (data && data.address) {
+          const addr = data.address;
+          // Extract city, state, postcode
+          let city = addr.city || addr.town || addr.village || addr.hamlet || "";
+          let state = addr.state || "";
+          let zip = addr.postcode || "";
+          
+          locationDetails = { city, state, zip, full: "" };
+          // Create a readable string
+          let parts = [];
+          if (city) parts.push(city);
+          if (state) parts.push(state);
+          if (zip) parts.push(zip);
+          locationDetails.full = parts.join(", ") || "Unknown location";
+          
+          currentCityStateZip = locationDetails.full;
+          gpsText.textContent = "📍 " + currentCityStateZip;
+          gpsDot.className = "gps-dot active";
+        } else {
+          // fallback: just show coordinates
+          currentCityStateZip = lat.toFixed(4) + ", " + lon.toFixed(4);
+          gpsText.textContent = "📍 " + currentCityStateZip + " (city not found)";
+          gpsDot.className = "gps-dot active";
+        }
+      })
+      .catch(error => {
+        console.error("Reverse geocode error:", error);
+        // fallback: show lat/lon
+        currentCityStateZip = lat.toFixed(4) + ", " + lon.toFixed(4);
+        gpsText.textContent = "📍 " + currentCityStateZip + " (geocode unavailable)";
+        gpsDot.className = "gps-dot active";
+      });
+  }
+
   function getLocation() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         function(position) {
-          currentLocation = position.coords.latitude.toFixed(6) + ", " + position.coords.longitude.toFixed(6);
-          gpsText.textContent = "GPS: " + currentLocation;
+          var lat = position.coords.latitude;
+          var lon = position.coords.longitude;
+          // First update with coordinates while we fetch address
+          currentCityStateZip = lat.toFixed(4) + ", " + lon.toFixed(4);
+          gpsText.textContent = "📍 " + currentCityStateZip + " (resolving address...)";
           gpsDot.className = "gps-dot active";
+          
+          // Now reverse geocode to get city, state, zip
+          fetchAddressFromCoords(lat, lon);
         },
-        function() {
-          currentLocation = "GPS unavailable";
-          gpsText.textContent = "GPS unavailable";
-          gpsDot.className = "gps-dot error";
+        function(error) {
+          console.warn("GPS error:", error);
+          currentCityStateZip = "GPS unavailable";
+          gpsText.textContent = "⚠️ GPS unavailable";
+          gpsDot.className = "gps-dot"; // orange dot (no active class)
         },
         { enableHighAccuracy: true, timeout: 10000 }
       );
+    } else {
+      currentCityStateZip = "Geolocation not supported";
+      gpsText.textContent = "❌ Geolocation not supported";
     }
   }
   getLocation();
@@ -205,7 +263,7 @@
   }
 
   // =============================================
-  // 🔥 YOUR FINAL GOOGLE APPS SCRIPT URL
+  // GOOGLE APPS SCRIPT URL (unchanged)
   // =============================================
   var GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPuKraCIl5bkA5UR3xV8oK5QplHpjbe_uZfRM2B1OSb22S7gw0KaZ9qtiyedP0cEw/exec";
   
@@ -228,14 +286,19 @@
                String(now.getMinutes()).padStart(2, '0') + ":" + 
                String(now.getSeconds()).padStart(2, '0');
     
-    // Create form data
+    // Use city/state/zip if available, otherwise fallback to what we have
+    var locationString = locationDetails.full || currentCityStateZip;
+    
     var formData = new FormData();
     formData.append("label_id", barcode);
     formData.append("barcode_type", "EAN-13");
     formData.append("status", status);
     formData.append("date", date);
     formData.append("time", time);
-    formData.append("location", currentLocation);
+    formData.append("location", locationString);            // Now contains city/state/zip
+    formData.append("city", locationDetails.city || "");
+    formData.append("state", locationDetails.state || "");
+    formData.append("zip", locationDetails.zip || "");
     formData.append("eta", date);
     formData.append("timestamp", now.toISOString());
 
@@ -251,7 +314,7 @@
         if (response.success) {
           statusMsg.className = "status-message success";
           statusMsg.textContent = "✓ SAVED TO GOOGLE SHEETS!";
-          alert("✅ SUCCESS!\nBarcode: " + barcode + "\nStatus: " + status + "\nLocation: " + currentLocation);
+          alert("✅ SUCCESS!\nBarcode: " + barcode + "\nStatus: " + status + "\nLocation: " + locationString);
           clearGrid();
         } else {
           throw new Error(response.error || "Unknown error");
@@ -275,8 +338,9 @@
   function doEnter() { 
     var bc = getBarcode(); 
     if (bc) {
+      // Refresh location before sending
       getLocation();
-      setTimeout(function() { sendToGoogleSheets(bc); }, 500);
+      setTimeout(function() { sendToGoogleSheets(bc); }, 1500); // extra time for geocode
     } else {
       statusMsg.className = "status-message error";
       statusMsg.textContent = "No barcode entered";
