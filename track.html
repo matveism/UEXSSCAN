@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Package Tracker</title>
+<meta name="description" content="Track your package delivery status" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff;
+    --fg: #2d3748;
+    --primary: hsl(220, 60%, 30%);
+    --primary-fg: #ffffff;
+    --muted: hsl(215, 15%, 50%);
+    --border: hsl(214, 30%, 91%);
+    --delivery-bg: hsl(210, 40%, 96%);
+    --destructive: hsl(0, 84%, 60%);
+    --green: #16a34a;
+    --orange: #f97316;
+    --dot: hsl(220, 60%, 30%);
+    --line: hsl(220, 20%, 80%);
+  }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--fg); }
+  header { background: var(--primary); color: var(--primary-fg); padding: 16px 24px; }
+  .header-inner { max-width: 1024px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .header-inner h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+  main { max-width: 1024px; margin: 0 auto; padding: 32px 16px; }
+  /* Tracking Input */
+  .input-wrap { max-width: 640px; margin: 0 auto; }
+  .input-wrap label { display: block; font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+  .input-row { display: flex; }
+  .input-row input { flex: 1; padding: 12px 16px; border: 2px solid var(--border); border-right: none; border-radius: 6px 0 0 6px; font-size: 18px; font-family: monospace; outline: none; }
+  .input-row input:focus { border-color: var(--primary); }
+  .input-row button { padding: 12px 24px; background: var(--primary); color: var(--primary-fg); font-weight: 700; border: none; border-radius: 0 6px 6px 0; cursor: pointer; font-size: 16px; }
+  .input-row button:hover { opacity: 0.9; }
+  .input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+  /* Grid */
+  .results-grid { margin-top: 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  @media (max-width: 768px) { .results-grid { grid-template-columns: 1fr; } }
+  /* Delivery Status */
+  .tracking-label { font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+  .tracking-num { font-size: 24px; font-weight: 700; font-family: monospace; letter-spacing: 1px; margin-bottom: 8px; }
+  .action-btns { display: flex; gap: 16px; font-size: 14px; color: var(--primary); margin-bottom: 24px; }
+  .action-btns button { background: none; border: none; color: var(--primary); cursor: pointer; font-weight: 500; }
+  .action-btns button:hover { text-decoration: underline; }
+  .status-card { background: var(--delivery-bg); border: 1px solid var(--border); border-radius: 8px; padding: 24px; }
+  .status-label { font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .status-value { font-size: 20px; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+  .status-value.delivered { color: var(--green); }
+  .eta-section { margin-bottom: 16px; }
+  .eta-label { font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+  .eta-display { display: flex; align-items: flex-start; gap: 24px; }
+  .eta-weekday { font-size: 18px; font-weight: 700; color: var(--primary); text-transform: uppercase; }
+  .eta-day { font-size: 40px; font-weight: 900; color: var(--primary); line-height: 1; }
+  .eta-month-year { font-size: 14px; color: var(--muted); }
+  .eta-by { font-size: 14px; color: var(--muted); }
+  .eta-time { font-size: 20px; font-weight: 700; color: var(--primary); }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px; }
+  .detail-grid .label { color: var(--muted); }
+  .detail-grid .val { font-weight: 600; }
+  /* Timeline */
+  .timeline-title { font-size: 18px; font-weight: 700; color: var(--primary); margin-bottom: 16px; }
+  .timeline-row { display: flex; gap: 16px; padding-bottom: 24px; }
+  .timeline-row:last-child { padding-bottom: 0; }
+  .timeline-col { display: flex; flex-direction: column; align-items: center; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--dot); margin-top: 4px; flex-shrink: 0; }
+  .dot.delivered { width: 20px; height: 20px; background: var(--green); margin-top: 2px; display: flex; align-items: center; justify-content: center; }
+  .dot.delivered svg { width: 12px; height: 12px; }
+  .dot.out-for-delivery { background: var(--orange); }
+  .connector { width: 2px; flex: 1; background: var(--line); margin-top: 4px; }
+  .event-status { font-weight: 700; font-size: 14px; }
+  .event-status.delivered { color: var(--green); }
+  .event-detail { font-size: 14px; color: var(--muted); }
+  .show-history { margin-top: 16px; background: none; border: none; color: var(--primary); font-weight: 700; font-size: 14px; cursor: pointer; }
+  .show-history:hover { text-decoration: underline; }
+  /* States */
+  .loading { margin-top: 32px; text-align: center; color: var(--muted); }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-msg { margin-top: 32px; max-width: 640px; margin-left: auto; margin-right: auto; background: hsl(0 84% 60% / 0.1); border: 1px solid hsl(0 84% 60% / 0.3); color: var(--destructive); border-radius: 6px; padding: 16px; text-align: center; font-weight: 600; }
+  .empty-state { margin-top: 64px; text-align: center; color: var(--muted); opacity: 0.5; }
+  .empty-state svg { margin: 0 auto 16px; }
+  .empty-state p { font-size: 18px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg>
+    <h1>PACKAGE TRACKER</h1>
+  </div>
+</header>
+<main>
+  <div class="input-wrap">
+    <label>Tracking Number:</label>
+    <div class="input-row">
+      <input type="text" id="trackInput" placeholder="Enter your tracking number" />
+      <button id="trackBtn">🔍 Track</button>
+    </div>
+  </div>
+  <div id="loadingState" class="loading" style="display:none;">
+    <div class="spinner"></div>
+    Searching...
+  </div>
+  <div id="errorState" class="error-msg" style="display:none;"></div>
+  <div id="emptyState" class="empty-state">
+    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg>
+    <p>Enter a tracking number to get started</p>
+  </div>
+  <div id="resultsArea" class="results-grid" style="display:none;">
+    <div id="statusPanel"></div>
+    <div id="timelinePanel"></div>
+  </div>
+</main>
+<script>
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRcCfqR0Yn3zjCBHYPT0gcPNcJjQ8QwgqsIyTbySG99R3l8VPsjotxwhasGL1yh6lLToq3G0p6AOZZR/pub?gid=0&single=true&output=csv";
+
+// ETA calculation rules based on status
+const ETA_RULES = {
+  "Item Booked": 7,
+  "Item Bagged": -1,
+  "Item Dispatched": -1,
+  "Item Received": -1,
+  "In-Transit": -1,
+  "Item Received at Delivery Office": -1,
+  "Out for delivery": -2,
+  "Delivered": 0
+};
+
+// Comprehensive US city database (major cities with their coordinates)
+const CITY_DATABASE = {
+  // Format: "lat,lng": "City, State ZIP"
+  "40.7128,-74.0060": "New York, NY 10001",
+  "34.0522,-118.2437": "Los Angeles, CA 90001",
+  "41.8781,-87.6298": "Chicago, IL 60601",
+  "29.7604,-95.3698": "Houston, TX 77001",
+  "39.9526,-75.1652": "Philadelphia, PA 19101",
+  "33.4484,-112.0740": "Phoenix, AZ 85001",
+  "29.4241,-98.4936": "San Antonio, TX 78201",
+  "32.7157,-117.1611": "San Diego, CA 92101",
+  "32.7767,-96.7970": "Dallas, TX 75201",
+  "37.3382,-121.8863": "San Jose, CA 95101",
+  "30.2672,-97.7431": "Austin, TX 78701",
+  "30.3322,-81.6557": "Jacksonville, FL 32201",
+  "37.7749,-122.4194": "San Francisco, CA 94101",
+  "39.7392,-104.9903": "Denver, CO 80201",
+  "38.9072,-77.0369": "Washington, DC 20001",
+  "42.3601,-71.0589": "Boston, MA 02101",
+  "36.1627,-86.7816": "Nashville, TN 37201",
+  "47.6062,-122.3321": "Seattle, WA 98101",
+  "35.2271,-80.8431": "Charlotte, NC 28201",
+  "35.1495,-90.0490": "Memphis, TN 38101",
+  "38.6270,-90.1994": "St. Louis, MO 63101",
+  "39.2904,-76.6122": "Baltimore, MD 21201",
+  "38.5767,-92.1735": "Jefferson City, MO 65101",
+  "44.9778,-93.2650": "Minneapolis, MN 55401",
+  "43.0389,-87.9065": "Milwaukee, WI 53201",
+  "32.2226,-110.9747": "Tucson, AZ 85701",
+  "36.7468,-119.7726": "Fresno, CA 93701",
+  "38.5816,-121.4944": "Sacramento, CA 95814",
+  "33.6846,-117.8265": "Irvine, CA 92602",
+  "37.6879,-97.3301": "Wichita, KS 67201",
+  "35.3733,-119.0187": "Bakersfield, CA 93301",
+  "39.5296,-119.8138": "Reno, NV 89501",
+  "36.1147,-115.1728": "Las Vegas, NV 89101",
+  "45.5152,-122.6784": "Portland, OR 97201",
+  "35.4676,-97.5164": "Oklahoma City, OK 73101",
+  "41.2587,-95.9379": "Omaha, NE 68101",
+  "37.4316,-78.6569": "Farmville, VA 23901",
+  "44.9907,-93.2753": "Minneapolis, MN 55408", // Your specific coordinates
+  "44.990713,-93.275276": "Minneapolis, MN 55408",
+  "44.990713": "Minneapolis, MN 55408", // Handle single coordinate
+  "44.990713, -93.275276": "Minneapolis, MN 55408",
+  "44.990713° N, 93.275276° W": "Minneapolis, MN 55408"
+};
+
+// Add more cities - you can expand this database
+// Format: "latitude,longitude": "City, State ZIP"
+
+// Function to extract lat/long from various formats
+function extractCoordinates(locationStr) {
+  if (!locationStr) return null;
+  
+  // Clean the string
+  const clean = locationStr.trim();
+  
+  // Pattern for "44.990713, -93.275276"
+  const commaPattern = /^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/;
+  // Pattern for "44.990713 -93.275276"
+  const spacePattern = /^(-?\d+\.?\d*)\s+(-?\d+\.?\d*)$/;
+  // Pattern for "44.990713" (single number)
+  const singlePattern = /^(-?\d+\.?\d*)$/;
+  // Pattern for "44.990713° N, 93.275276° W"
+  const dmsPattern = /(-?\d+\.?\d*)[°\s]*([NS])?\s*[,/\s]+\s*(-?\d+\.?\d*)[°\s]*([EW])?/i;
+  
+  let match = clean.match(commaPattern);
+  if (match) {
+    return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+  }
+  
+  match = clean.match(spacePattern);
+  if (match) {
+    return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+  }
+  
+  match = clean.match(dmsPattern);
+  if (match) {
+    let lat = parseFloat(match[1]);
+    let lng = parseFloat(match[3]);
+    if (match[2] && match[2].toUpperCase() === 'S') lat = -Math.abs(lat);
+    if (match[4] && match[4].toUpperCase() === 'W') lng = -Math.abs(lng);
+    return { lat, lng };
+  }
+  
+  match = clean.match(singlePattern);
+  if (match) {
+    // If only latitude provided, use default longitude for demo
+    return { lat: parseFloat(match[1]), lng: -93.275276 };
+  }
+  
+  return null;
+}
+
+// Function to convert coordinates to city/state/zip using database
+function convertToLocation(locationStr) {
+  if (!locationStr) return null;
+  
+  // First check if it's already a readable location (contains letters)
+  if (/[a-zA-Z]/.test(locationStr)) {
+    return locationStr; // Return as-is
+  }
+  
+  // Try to extract coordinates
+  const coords = extractCoordinates(locationStr);
+  if (!coords) return locationStr;
+  
+  // Round coordinates to 4 decimal places for matching
+  const lat = coords.lat.toFixed(4);
+  const lng = coords.lng.toFixed(4);
+  
+  // Try exact match first
+  const exactKey = `${lat},${lng}`;
+  if (CITY_DATABASE[exactKey]) {
+    return CITY_DATABASE[exactKey];
+  }
+  
+  // Try rounded match (3 decimals)
+  const roundedKey = `${parseFloat(lat).toFixed(3)},${parseFloat(lng).toFixed(3)}`;
+  if (CITY_DATABASE[roundedKey]) {
+    return CITY_DATABASE[roundedKey];
+  }
+  
+  // Try without decimals
+  const intKey = `${Math.round(parseFloat(lat))},${Math.round(parseFloat(lng))}`;
+  if (CITY_DATABASE[intKey]) {
+    return CITY_DATABASE[intKey];
+  }
+  
+  // Try searching for nearby coordinates
+  for (const [key, value] of Object.entries(CITY_DATABASE)) {
+    const [dbLat, dbLng] = key.split(',').map(Number);
+    const distance = Math.sqrt(
+      Math.pow(dbLat - coords.lat, 2) + 
+      Math.pow(dbLng - coords.lng, 2)
+    );
+    
+    // If within ~50 miles (rough approximation)
+    if (distance < 0.5) {
+      return value;
+    }
+  }
+  
+  // If no match found, return formatted coordinates with a note
+  return `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)} (location lookup available)`;
+}
+
+// Function to combine date and time into a proper timestamp
+function createTimestamp(dateStr, timeStr) {
+  if (!dateStr) return null;
+  
+  // Clean up date string (remove st, nd, rd, th)
+  const cleanDate = dateStr.replace(/(\d+)(st|nd|rd|th)/g, '$1');
+  
+  let dateTimeStr = cleanDate;
+  if (timeStr && timeStr !== "NULL" && timeStr !== "") {
+    dateTimeStr = cleanDate + ' ' + timeStr;
+  }
+  
+  const timestamp = new Date(dateTimeStr);
+  return isNaN(timestamp) ? null : timestamp;
+}
+
+function parseCSV(csvText) {
+  const lines = csvText.split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  
+  return lines.slice(1)
+    .filter(line => line.trim())
+    .map(line => {
+      const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+      const record = {};
+      
+      headers.forEach((header, index) => {
+        const value = values[index] || '';
+        const headerLower = header.toLowerCase().trim();
+        
+        if (headerLower === 'label_id') {
+          record.label_id = value;
+        } 
+        else if (headerLower === 'barcode_type') {
+          record.barcode_type = value;
+        }
+        else if (headerLower === 'status') {
+          record.status = value;
+        }
+        else if (headerLower === 'date') {
+          record.date = value;
+        }
+        else if (headerLower === 'time') {
+          record.time = value;
+        }
+        else if (headerLower === 'location') {
+          // CONVERT lat/long to real location
+          record.raw_location = value;
+          record.location = convertToLocation(value);
+        }
+        else if (headerLower === 'eta') {
+          record.eta = value;
+        }
+      });
+      
+      // Create combined timestamp from date and time
+      record.timestamp = createTimestamp(record.date, record.time);
+      
+      return record;
+    });
+}
+
+function calculateETA(scans) {
+  if (!scans.length) return null;
+  
+  // Sort by timestamp (oldest first) to get the starting point
+  const sorted = [...scans].sort((a, b) => {
+    if (!a.timestamp) return 1;
+    if (!b.timestamp) return -1;
+    return a.timestamp - b.timestamp;
+  });
+  
+  const baseDate = sorted[0].timestamp;
+  if (!baseDate) return null;
+  
+  // Get the latest status for ETA calculation
+  const latestScan = scans.sort((a, b) => {
+    if (!a.timestamp) return 1;
+    if (!b.timestamp) return -1;
+    return b.timestamp - a.timestamp;
+  })[0];
+  
+  const latestStatus = latestScan.status;
+  
+  // Find matching rule (case insensitive partial match)
+  let daysToAdd = 0;
+  for (const [status, days] of Object.entries(ETA_RULES)) {
+    if (latestStatus.toLowerCase().includes(status.toLowerCase())) {
+      daysToAdd = days;
+      break;
+    }
+  }
+  
+  // Calculate ETA based on latest status and base date
+  return new Date(baseDate.getTime() + daysToAdd * 86400000);
+}
+
+async function handleTrack() {
+  const input = document.getElementById("trackInput").value.trim();
+  if (!input) return;
+  
+  document.getElementById("loadingState").style.display = "block";
+  document.getElementById("errorState").style.display = "none";
+  document.getElementById("resultsArea").style.display = "none";
+  document.getElementById("emptyState").style.display = "none";
+  showFullHistory = false;
+  
+  try {
+    const response = await fetch(CSV_URL);
+    if (!response.ok) throw new Error("Failed to fetch tracking data");
+    
+    const csvText = await response.text();
+    const allRecords = parseCSV(csvText);
+    
+    // Filter records by label_id (tracking number) - case insensitive
+    const filtered = allRecords.filter(r => 
+      r.label_id && r.label_id.toLowerCase() === input.toLowerCase()
+    );
+    
+    if (!filtered.length) {
+      document.getElementById("errorState").textContent = 'No tracking data found for "' + input + '"';
+      document.getElementById("errorState").style.display = "block";
+      return;
+    }
+    
+    // Sort by timestamp (newest first) - only keep records with valid timestamps
+    const validScans = filtered.filter(r => r.timestamp);
+    validScans.sort((a, b) => b.timestamp - a.timestamp);
+    
+    allScans = validScans.length ? validScans : filtered;
+    renderResults(input);
+  } catch (err) {
+    document.getElementById("errorState").textContent = err.message || "Failed to connect";
+    document.getElementById("errorState").style.display = "block";
+  } finally {
+    document.getElementById("loadingState").style.display = "none";
+  }
+}
+
+function renderResults(trackingNumber) {
+  const latest = allScans[0];
+  const eta = calculateETA(allScans);
+  const isDelivered = latest.status.toLowerCase().includes("delivered");
+  
+  // Status panel
+  let etaHTML = "";
+  if (eta && !isNaN(eta) && !isDelivered) {
+    const weekday = eta.toLocaleDateString("en-US", { weekday: "long" });
+    const day = eta.getDate();
+    const month = eta.toLocaleDateString("en-US", { month: "long" });
+    const year = eta.getFullYear();
+    etaHTML = `
+      <div class="eta-section">
+        <p class="eta-label">Expected Delivery</p>
+        <div class="eta-display">
+          <div>
+            <p class="eta-weekday">${weekday}</p>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span class="eta-day">${day}</span>
+              <div class="eta-month-year"><p>${month}</p><p>${year}</p></div>
+            </div>
+          </div>
+          <div>
+            <p class="eta-by">by</p>
+            <p class="eta-time">9:00 PM</p>
+          </div>
+        </div>
+      </div>`;
+  } else if (isDelivered) {
+    etaHTML = `
+      <div class="eta-section">
+        <p class="status-value delivered" style="margin-bottom:0;">✓ Delivered</p>
+      </div>`;
+  }
+  
+  document.getElementById("statusPanel").innerHTML = `
+    <div>
+      <p class="tracking-label">Tracking Number:</p>
+      <p class="tracking-num">${trackingNumber}</p>
+      <div class="action-btns">
+        <button onclick="navigator.clipboard.writeText('${trackingNumber}')">📋 Copy</button>
+        <button>⭐ Add to Informed Delivery</button>
+      </div>
+      <div class="status-card">
+        <p class="status-label">Latest Status</p>
+        <p class="status-value ${isDelivered ? 'delivered' : ''}">${latest.status}</p>
+        ${etaHTML}
+        <div class="detail-grid">
+          <div><span class="label">Type: </span><span class="val">${latest.barcode_type || "N/A"}</span></div>
+          <div><span class="label">Location: </span><span class="val">${latest.location || "N/A"}</span></div>
+        </div>
+      </div>
+    </div>`;
+  
+  renderTimeline();
+  document.getElementById("resultsArea").style.display = "grid";
+}
+
+function renderTimeline() {
+  const events = showFullHistory ? allScans : allScans.slice(0, 2);
+  let html = '<h3 class="timeline-title">Tracking History</h3><div>';
+  
+  events.forEach((ev, i) => {
+    const s = ev.status.toLowerCase();
+    const isDelivered = s.includes("delivered");
+    const isOFD = s.includes("out for delivery");
+    
+    let dotHTML;
+    if (isDelivered) {
+      dotHTML = `<div class="dot delivered"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>`;
+    } else if (isOFD) {
+      dotHTML = `<div class="dot out-for-delivery"></div>`;
+    } else {
+      dotHTML = `<div class="dot"></div>`;
+    }
+    
+    const connector = i < events.length - 1 ? '<div class="connector"></div>' : '';
+    
+    // Format date from timestamp
+    let dateStr = "";
+    if (ev.timestamp) {
+      dateStr = ev.timestamp.toLocaleDateString("en-US", { 
+        month: "long", 
+        day: "numeric", 
+        year: "numeric"
+      });
+      
+      // Add time if available
+      if (ev.time && ev.time !== "NULL" && ev.time !== "") {
+        dateStr += " at " + ev.time;
+      }
+    }
+    
+    html += `
+      <div class="timeline-row">
+        <div class="timeline-col">${dotHTML}${connector}</div>
+        <div>
+          <p class="event-status ${isDelivered ? 'delivered' : ''}">${ev.status}</p>
+          ${ev.location && ev.location !== "N/A" ? '<p class="event-detail">' + ev.location + '</p>' : ''}
+          ${dateStr ? '<p class="event-detail">' + dateStr + '</p>' : ''}
+        </div>
+      </div>`;
+  });
+  
+  html += '</div>';
+  
+  if (allScans.length > 2) {
+    html += `<button class="show-history" onclick="toggleHistory()">${showFullHistory ? 'Hide Tracking History' : 'Show Full Tracking History (' + allScans.length + ' events)'}</button>`;
+  }
+  
+  document.getElementById("timelinePanel").innerHTML = html;
+}
+
+function toggleHistory() {
+  showFullHistory = !showFullHistory;
+  renderTimeline();
+}
+
+// Event listeners
+document.getElementById("trackBtn").addEventListener("click", handleTrack);
+document.getElementById("trackInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") handleTrack();
+});
+
+// Initialize empty state
+document.getElementById("emptyState").style.display = "block";
+</script>
+</body>
+</html>
