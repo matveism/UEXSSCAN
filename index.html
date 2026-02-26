@@ -7,78 +7,311 @@
 
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { width: 360px; height: 640px; overflow: hidden; background: #ffffff; font-family: Arial, sans-serif; }
-  .header { width: 360px; height: 32px; background: #0b6fd8; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; }
-  .title { font-size: 14px; font-weight: bold; }
-  .icons { display: flex; }
-  .icon { width: 14px; height: 14px; border: 1px solid #fff; border-radius: 2px; margin-left: 6px; }
-  .dots { width: 4px; height: 4px; background: #fff; border-radius: 50%; margin-left: 8px; box-shadow: 0 6px 0 #fff, 0 -6px 0 #fff; }
-  .under-area { width: 360px; background: #A7C6E2; padding: 5px; height: calc(640px - 32px); overflow-y: auto; }
-  .scan-btn { width: 100%; height: 40px; background: #2E7D32; color: white; font-size: 18px; font-weight: bold; border: none; border-radius: 5px; margin-bottom: 5px; cursor: pointer; }
-  .under-header { font-weight: bold; margin: 5px 0; }
-  .grid { width: 360px; }
+  body { 
+    width: 360px; 
+    height: 640px; 
+    overflow: hidden; 
+    background: #1a2634; 
+    font-family: 'Segoe UI', Arial, sans-serif; 
+    color: #e0e0e0;
+  }
+  
+  .app-container {
+    width: 360px;
+    height: 640px;
+    display: flex;
+    flex-direction: column;
+    background: #1a2634;
+    overflow: hidden;
+  }
+  
+  .status-bar {
+    width: 360px;
+    height: 28px;
+    background: #0f1a24;
+    color: #b0c4de;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 10px 0 10px;
+    overflow: hidden;
+  }
+  
+  .scan-btn { 
+    width: 100%; 
+    height: 44px; 
+    background: #1e4a2b; 
+    color: white; 
+    font-size: 18px; 
+    font-weight: bold; 
+    border: none; 
+    border-radius: 6px; 
+    margin-bottom: 10px; 
+    cursor: pointer; 
+    box-shadow: 0 2px 0 #0a2b13;
+    letter-spacing: 0.5px;
+  }
+  .scan-btn:active { background: #166b2c; }
+  
+  .section-label { 
+    font-weight: 600; 
+    margin: 6px 0 4px 0; 
+    color: #b0c4de; 
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  
+  /* GRID - restored original but with better contrast */
+  .grid { 
+    width: 100%; 
+    background: #253241; 
+    padding: 8px 4px; 
+    border-radius: 8px; 
+    margin-bottom: 6px;
+  }
   .row { display: flex; }
-  .cell { width: 18px; height: 22px; border: 1px solid #999; background: #E2E8D3; text-align: center; font-size: 14px; line-height: 22px; }
-  .orange { background: #F49A16; }
-  .gray { background: #A9A9A9; }
-  .select-status-header { width: 100%; height: 32px; background: #0b6fd8; color: white; display: flex; align-items: center; padding-left: 8px; margin: 10px 0; font-weight: bold; }
-  .status-select { width: 100%; height: 40px; font-size: 16px; margin-bottom: 10px; }
-  .gps-status { font-size: 12px; color: #0b6fd8; margin: 5px 0; display: flex; align-items: center; gap: 5px; }
-  .gps-dot { width: 8px; height: 8px; border-radius: 50%; background: #FFA500; display: inline-block; }
-  .gps-dot.active { background: #28a745; }
-  .label-bar { font-weight: bold; margin: 5px 0; }
-  .status-message { text-align: center; font-weight: bold; padding: 10px; min-height: 40px; }
-  .success { color: #28a745; } .error { color: #dc3545; } .sending { color: #0b6fd8; }
-  .footer { width: 360px; height: 28px; background: #0b6fd8; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; margin-top: 10px; }
-  .footer-icons { display: flex; }
-  .footer-icon { width: 14px; height: 14px; border: 1px solid #fff; border-radius: 2px; margin-right: 8px; }
-  .keypad-wrapper { margin-top: 10px; }
+  .cell { 
+    width: 18px; 
+    height: 24px; 
+    border: 1px solid #4a5a6a; 
+    background: #2f3e4e; 
+    text-align: center; 
+    font-size: 14px; 
+    line-height: 24px; 
+    color: #ffffff; 
+    font-weight: 600;
+    margin: 1px;
+    border-radius: 3px;
+  }
+  .orange { background: #c97d0b; border-color: #e5a33b; }
+  .gray { background: #4a555f; border-color: #6b7a8a; }
+  
+  .input-row .cell { cursor: default; }
+  
+  /* SELECT STATUS header - exactly as before but darker */
+  .select-status-header { 
+    width: 100%; 
+    height: 32px; 
+    background: #1e3b55; 
+    color: white; 
+    display: flex; 
+    align-items: center; 
+    padding-left: 10px; 
+    margin: 8px 0 6px 0; 
+    font-weight: bold; 
+    border-radius: 4px;
+  }
+  
+  .status-select { 
+    width: 100%; 
+    height: 40px; 
+    font-size: 15px; 
+    margin-bottom: 8px; 
+    background: #2a3848; 
+    color: white; 
+    border: 1px solid #4a627a; 
+    border-radius: 5px;
+    padding: 0 8px;
+  }
+  .status-select option { background: #1e2c3a; color: white; }
+  
+  /* GPS status */
+  .gps-status { 
+    font-size: 13px; 
+    color: #b0d0ff; 
+    margin: 4px 0; 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    background: #1e2e3e; 
+    padding: 6px 10px; 
+    border-radius: 20px;
+  }
+  .gps-dot { 
+    width: 8px; 
+    height: 8px; 
+    border-radius: 50%; 
+    background: #ffa500; 
+    display: inline-block; 
+  }
+  .gps-dot.active { background: #2ecc71; }
+  
+  .status-message { 
+    text-align: center; 
+    font-weight: bold; 
+    padding: 8px; 
+    min-height: 36px; 
+    background: #1f2f3f; 
+    border-radius: 20px; 
+    margin: 6px 0 4px 0;
+    font-size: 14px;
+  }
+  .success { color: #8bc34a; } 
+  .error { color: #f28b82; } 
+  .sending { color: #64b5f6; }
+  
+  /* KEYPAD - COMPLETELY RESTORED TO ORIGINAL */
+  .keypad-wrapper { 
+    margin-top: 4px; 
+    background: #17222d; 
+    border-radius: 10px; 
+    padding: 8px 4px;
+  }
   .keypad-num { display: flex; justify-content: center; }
   .col { display: flex; flex-direction: column; }
   .center-col { display: flex; flex-direction: column; margin: 0 2px; }
   .center-row { display: flex; justify-content: center; }
-  .btn, .grid-btn { background: #0b6fd8; border: 2px solid #083f82; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; cursor: pointer; width: 60px; height: 34px; margin: 3px; font-size: 16px; }
-  .grid-btn { font-size: 18px; }
-  .keypad-qwerty { display: none; flex-direction: column; align-items: center; }
+  .btn, .grid-btn { 
+    background: #2a4055; 
+    border: 2px solid #1a2b39; 
+    border-radius: 6px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    color: #fff; 
+    font-weight: bold; 
+    cursor: pointer; 
+    width: 60px; 
+    height: 38px; 
+    margin: 3px; 
+    font-size: 16px; 
+    box-shadow: 0 2px 0 #0f1a22;
+  }
+  .btn:active, .grid-btn:active { background: #365d7a; }
+  
+  .keypad-qwerty { 
+    display: none; 
+    flex-direction: column; 
+    align-items: center; 
+  }
   .q-row { display: flex; justify-content: center; }
-  .q-btn { width: 30px; height: 34px; margin: 1px; background: #0b6fd8; border: 2px solid #083f82; border-radius: 4px; color: #fff; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .q-btn { 
+    width: 30px; 
+    height: 38px; 
+    margin: 1px; 
+    background: #2a4055; 
+    border: 2px solid #1a2b39; 
+    border-radius: 6px; 
+    color: #fff; 
+    font-weight: bold; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 14px; 
+  }
   .q-btn.wide { width: 45px; }
   .q-btn.space { width: 96px; }
   
-  .scanner-modal { display: none; position: fixed; top: 0; left: 0; width: 360px; height: 640px; background: #000; z-index: 9999; flex-direction: column; }
+  /* SCANNER MODAL */
+  .scanner-modal { 
+    display: none; 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 360px; 
+    height: 640px; 
+    background: #000; 
+    z-index: 9999; 
+    flex-direction: column; 
+  }
   .scanner-modal.active { display: flex; }
-  .scanner-header { width: 360px; height: 32px; background: #0b6fd8; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; }
-  .scanner-close { width: 24px; height: 24px; background: rgba(255,255,255,0.2); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; }
+  .scanner-header { 
+    width: 360px; 
+    height: 40px; 
+    background: #0f1a24; 
+    color: #fff; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    padding: 0 12px; 
+  }
+  .scanner-close { 
+    width: 30px; 
+    height: 30px; 
+    background: #2a4055; 
+    border-radius: 4px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 20px; 
+    cursor: pointer; 
+  }
   .scanner-content { flex: 1; background: #000; position: relative; }
   #scanner-video { width: 100%; height: 100%; object-fit: cover; }
-  .scanner-frame { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; height: 140px; border: 2px solid #0b6fd8; box-shadow: 0 0 0 1000px rgba(0,0,0,0.5); }
-  .scanner-footer { width: 360px; height: 60px; background: #0b6fd8; display: flex; align-items: center; justify-content: center; }
-  .scanner-cancel { background: #8B0000; border: 1px solid #5a0000; border-radius: 4px; color: #fff; font-weight: bold; font-size: 16px; padding: 10px 30px; cursor: pointer; }
+  .scanner-frame { 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    width: 280px; 
+    height: 140px; 
+    border: 2px solid #1e4a2b; 
+    box-shadow: 0 0 0 1000px rgba(0,0,0,0.5); 
+  }
+  .scanner-footer { 
+    width: 360px; 
+    height: 60px; 
+    background: #0f1a24; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+  }
+  .scanner-cancel { 
+    background: #7a2e2e; 
+    border: 1px solid #521f1f; 
+    border-radius: 6px; 
+    color: #fff; 
+    font-weight: bold; 
+    font-size: 16px; 
+    padding: 10px 30px; 
+    cursor: pointer; 
+  }
+  
+  .footer-time {
+    text-align: right;
+    font-size: 12px;
+    color: #7f96b0;
+    padding: 4px 8px 0 0;
+  }
 </style>
 </head>
-
 <body>
-  <div class="header">
-    <div class="title">Scan Barcode</div>
-    <div class="icons"><div class="icon"></div><div class="icon"></div><div class="icon"></div><div class="icon"></div><div class="dots"></div></div>
+<div class="app-container">
+  <div class="status-bar">
+    <span>Scan & Track</span>
+    <span id="timeDisplay">--:-- --</span>
   </div>
 
-  <div class="under-area">
-    <button class="scan-btn" id="scanBtn">📷 SCAN BARCODE</button>
+  <div class="main-content">
+    <!-- DARK GREEN SCAN BUTTON - EASY TO IDENTIFY -->
+    <button class="scan-btn" id="scanBtn">SCAN BARCODE</button>
     
-    <div class="under-header">Scan/key-in barcode</div>
+    <div class="section-label">Barcode entry</div>
 
-    <!-- GRID -->
+    <!-- GRID - original size restored -->
     <div class="grid">
-      <div class="row" id="inputRow">
+      <div class="row input-row" id="inputRow">
         <div class="cell orange input-cell" data-index="0"></div><div class="cell input-cell" data-index="1"></div><div class="cell input-cell" data-index="2"></div><div class="cell input-cell" data-index="3"></div><div class="cell input-cell" data-index="4"></div><div class="cell input-cell" data-index="5"></div><div class="cell input-cell" data-index="6"></div><div class="cell input-cell" data-index="7"></div><div class="cell input-cell" data-index="8"></div><div class="cell input-cell" data-index="9"></div><div class="cell input-cell" data-index="10"></div><div class="cell input-cell" data-index="11"></div><div class="cell input-cell" data-index="12"></div><div class="cell input-cell" data-index="13"></div><div class="cell input-cell" data-index="14"></div><div class="cell input-cell" data-index="15"></div><div class="cell input-cell" data-index="16"></div><div class="cell input-cell" data-index="17"></div><div class="cell input-cell" data-index="18"></div><div class="cell input-cell" data-index="19"></div>
       </div>
       <div class="row"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div>
       <div class="row"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div></div>
     </div>
 
+    <!-- SELECT STATUS - ORIGINAL EXACT HEADER -->
     <div class="select-status-header">SELECT STATUS</div>
 
+    <!-- STATUSES - COMPLETELY RESTORED TO YOUR ORIGINAL LIST -->
     <select class="status-select" id="statusSelect">
       <option value="">-- Select Status --</option>
       <option value="Item Booked">Item Booked</option>
@@ -91,30 +324,36 @@
       <option value="Delivered">Delivered</option>
     </select>
 
+    <!-- GPS STATUS - NO EMOJIS -->
     <div class="gps-status" id="gpsStatus">
       <span class="gps-dot" id="gpsDot"></span>
       <span id="gpsText">Getting location details...</span>
     </div>
 
-    <div class="label-bar">|#| LABEL ID |</div>
+    <!-- STATUS MESSAGE AREA - NO EMOJIS -->
     <div id="statusMessage" class="status-message">Ready</div>
-    
-    <div class="footer">
-      <div class="footer-icons"><div class="footer-icon"></div><div class="footer-icon"></div><div class="footer-icon"></div></div>
-      <div id="timeDisplay"></div>
-    </div>
 
-    <!-- KEYPADS -->
+    <!-- KEYPAD - EXACT ORIGINAL LAYOUT RESTORED -->
     <div class="keypad-wrapper">
       <div class="keypad-num" id="keypadNum">
-        <div class="col"><div class="btn key-btn" data-action="left">←</div><div class="btn key-btn" data-action="right">→</div><div class="btn key-btn" data-action="esc">ESC</div><div class="btn key-btn" data-action="toQwerty">ABC SYM</div></div>
+        <div class="col">
+          <div class="btn key-btn" data-action="left">←</div>
+          <div class="btn key-btn" data-action="right">→</div>
+          <div class="btn key-btn" data-action="esc">ESC</div>
+          <div class="btn key-btn" data-action="toQwerty">ABC SYM</div>
+        </div>
         <div class="center-col">
           <div class="center-row"><div class="grid-btn key-btn" data-char="1">1</div><div class="grid-btn key-btn" data-char="2">2</div><div class="grid-btn key-btn" data-char="3">3</div></div>
           <div class="center-row"><div class="grid-btn key-btn" data-char="4">4</div><div class="grid-btn key-btn" data-char="5">5</div><div class="grid-btn key-btn" data-char="6">6</div></div>
           <div class="center-row"><div class="grid-btn key-btn" data-char="7">7</div><div class="grid-btn key-btn" data-char="8">8</div><div class="grid-btn key-btn" data-char="9">9</div></div>
           <div class="center-row"><div class="grid-btn key-btn" data-char="-">-</div><div class="grid-btn key-btn" data-char="0">0</div><div class="grid-btn key-btn" data-char=".">.</div></div>
         </div>
-        <div class="col"><div class="btn key-btn" data-action="up">↑</div><div class="btn key-btn" data-action="down">↓</div><div class="btn key-btn" data-action="backspace">⌫</div><div class="btn key-btn" data-action="enter">ENT↵</div></div>
+        <div class="col">
+          <div class="btn key-btn" data-action="up">↑</div>
+          <div class="btn key-btn" data-action="down">↓</div>
+          <div class="btn key-btn" data-action="backspace">⌫</div>
+          <div class="btn key-btn" data-action="enter">ENT↵</div>
+        </div>
       </div>
 
       <div class="keypad-qwerty" id="keypadQwerty">
@@ -124,6 +363,8 @@
         <div class="q-row"><div class="q-btn wide key-btn" data-action="toNum">123</div><div class="q-btn space key-btn" data-char=" ">SPACE</div><div class="q-btn wide key-btn" data-action="backspace">⌫</div><div class="q-btn wide key-btn" data-action="enter">↵</div></div>
       </div>
     </div>
+    
+    <div class="footer-time" id="footerTime"></div>
   </div>
 
   <!-- SCANNER MODAL -->
@@ -132,6 +373,7 @@
     <div class="scanner-content"><video id="scanner-video"></video><div class="scanner-frame"></div></div>
     <div class="scanner-footer"><div class="scanner-cancel" id="cancelScan">CANCEL</div></div>
   </div>
+</div>
 
 <script>
   // TIME UPDATE
@@ -142,17 +384,17 @@
     var ampm = hours >= 12 ? "PM" : "AM";
     hours = hours % 12 || 12;
     var minutes = now.getMinutes() < 10 ? "0" + now.getMinutes() : now.getMinutes();
-    el.textContent = (now.getMonth()+1) + "/" + now.getDate() + " " + hours + ":" + minutes + " " + ampm;
+    el.textContent = hours + ":" + minutes + " " + ampm;
+    
+    document.getElementById("footerTime").textContent = now.toLocaleDateString();
   }
   setInterval(updateTime, 1000);
   updateTime();
 
-  // =============================================
-  // LOCATION with reverse geocoding (city, state, zip)
-  // =============================================
+  // LOCATION with reverse geocoding
   var gpsDot = document.getElementById("gpsDot");
   var gpsText = document.getElementById("gpsText");
-  var currentCityStateZip = "Acquiring location..."; // default text
+  var currentCityStateZip = "Acquiring location...";
   var locationDetails = {
     city: "",
     state: "",
@@ -160,21 +402,17 @@
     full: "Unknown"
   };
 
-  // Use reverse geocoding via OpenStreetMap (no API key required)
   function fetchAddressFromCoords(lat, lon) {
     fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`)
       .then(response => response.json())
       .then(data => {
-        console.log("Geocoding response:", data);
         if (data && data.address) {
           const addr = data.address;
-          // Extract city, state, postcode
           let city = addr.city || addr.town || addr.village || addr.hamlet || "";
           let state = addr.state || "";
           let zip = addr.postcode || "";
           
           locationDetails = { city, state, zip, full: "" };
-          // Create a readable string
           let parts = [];
           if (city) parts.push(city);
           if (state) parts.push(state);
@@ -182,20 +420,17 @@
           locationDetails.full = parts.join(", ") || "Unknown location";
           
           currentCityStateZip = locationDetails.full;
-          gpsText.textContent = "📍 " + currentCityStateZip;
+          gpsText.textContent = currentCityStateZip;
           gpsDot.className = "gps-dot active";
         } else {
-          // fallback: just show coordinates
           currentCityStateZip = lat.toFixed(4) + ", " + lon.toFixed(4);
-          gpsText.textContent = "📍 " + currentCityStateZip + " (city not found)";
+          gpsText.textContent = currentCityStateZip + " (city not found)";
           gpsDot.className = "gps-dot active";
         }
       })
       .catch(error => {
-        console.error("Reverse geocode error:", error);
-        // fallback: show lat/lon
         currentCityStateZip = lat.toFixed(4) + ", " + lon.toFixed(4);
-        gpsText.textContent = "📍 " + currentCityStateZip + " (geocode unavailable)";
+        gpsText.textContent = currentCityStateZip + " (geocode unavailable)";
         gpsDot.className = "gps-dot active";
       });
   }
@@ -206,25 +441,21 @@
         function(position) {
           var lat = position.coords.latitude;
           var lon = position.coords.longitude;
-          // First update with coordinates while we fetch address
           currentCityStateZip = lat.toFixed(4) + ", " + lon.toFixed(4);
-          gpsText.textContent = "📍 " + currentCityStateZip + " (resolving address...)";
+          gpsText.textContent = currentCityStateZip + " (resolving address...)";
           gpsDot.className = "gps-dot active";
-          
-          // Now reverse geocode to get city, state, zip
           fetchAddressFromCoords(lat, lon);
         },
         function(error) {
-          console.warn("GPS error:", error);
           currentCityStateZip = "GPS unavailable";
-          gpsText.textContent = "⚠️ GPS unavailable";
-          gpsDot.className = "gps-dot"; // orange dot (no active class)
+          gpsText.textContent = "GPS unavailable";
+          gpsDot.className = "gps-dot";
         },
         { enableHighAccuracy: true, timeout: 10000 }
       );
     } else {
       currentCityStateZip = "Geolocation not supported";
-      gpsText.textContent = "❌ Geolocation not supported";
+      gpsText.textContent = "Geolocation not supported";
     }
   }
   getLocation();
@@ -262,9 +493,7 @@
     setActive(0); 
   }
 
-  // =============================================
-  // GOOGLE APPS SCRIPT URL (unchanged)
-  // =============================================
+  // GOOGLE APPS SCRIPT URL
   var GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPuKraCIl5bkA5UR3xV8oK5QplHpjbe_uZfRM2B1OSb22S7gw0KaZ9qtiyedP0cEw/exec";
   
   function sendToGoogleSheets(barcode) {
@@ -286,7 +515,6 @@
                String(now.getMinutes()).padStart(2, '0') + ":" + 
                String(now.getSeconds()).padStart(2, '0');
     
-    // Use city/state/zip if available, otherwise fallback to what we have
     var locationString = locationDetails.full || currentCityStateZip;
     
     var formData = new FormData();
@@ -295,41 +523,38 @@
     formData.append("status", status);
     formData.append("date", date);
     formData.append("time", time);
-    formData.append("location", locationString);            // Now contains city/state/zip
+    formData.append("location", locationString);
     formData.append("city", locationDetails.city || "");
     formData.append("state", locationDetails.state || "");
     formData.append("zip", locationDetails.zip || "");
     formData.append("eta", date);
     formData.append("timestamp", now.toISOString());
 
-    console.log("SENDING:", Object.fromEntries(formData));
-    
     var xhr = new XMLHttpRequest();
     xhr.open("POST", GOOGLE_SCRIPT_URL, true);
     
     xhr.onload = function() {
-      console.log("RESPONSE:", xhr.responseText);
       try {
         var response = JSON.parse(xhr.responseText);
         if (response.success) {
           statusMsg.className = "status-message success";
-          statusMsg.textContent = "✓ SAVED TO GOOGLE SHEETS!";
-          alert("✅ SUCCESS!\nBarcode: " + barcode + "\nStatus: " + status + "\nLocation: " + locationString);
+          statusMsg.textContent = "SAVED TO GOOGLE SHEETS!";
+          alert("SUCCESS!\nBarcode: " + barcode + "\nStatus: " + status + "\nLocation: " + locationString);
           clearGrid();
         } else {
           throw new Error(response.error || "Unknown error");
         }
       } catch(e) {
         statusMsg.className = "status-message error";
-        statusMsg.textContent = "✗ Error: " + e.message;
-        alert("❌ ERROR:\n" + e.message);
+        statusMsg.textContent = "Error: " + e.message;
+        alert("ERROR:\n" + e.message);
       }
     };
     
     xhr.onerror = function() {
       statusMsg.className = "status-message error";
-      statusMsg.textContent = "✗ Network error";
-      alert("❌ NETWORK ERROR\nCheck that your Google Script is deployed with 'Anyone' access");
+      statusMsg.textContent = "Network error";
+      alert("NETWORK ERROR");
     };
     
     xhr.send(formData);
@@ -338,9 +563,8 @@
   function doEnter() { 
     var bc = getBarcode(); 
     if (bc) {
-      // Refresh location before sending
       getLocation();
-      setTimeout(function() { sendToGoogleSheets(bc); }, 1500); // extra time for geocode
+      setTimeout(function() { sendToGoogleSheets(bc); }, 1500);
     } else {
       statusMsg.className = "status-message error";
       statusMsg.textContent = "No barcode entered";
@@ -381,7 +605,7 @@
     } catch(e) { alert("Camera error: " + e.message); }
   }
 
-  // KEYPAD
+  // KEYPAD - ORIGINAL BEHAVIOR
   document.querySelectorAll(".key-btn").forEach(btn => {
     btn.onclick = function() {
       var char = this.dataset.char;
@@ -389,7 +613,7 @@
       if (char) writeChar(char);
       else if (action === "left" && activeIndex>0) setActive(activeIndex-1);
       else if (action === "right" && activeIndex<19) setActive(activeIndex+1);
-      else if (action === "up" && activeIndex>19) setActive(activeIndex-20);
+      else if (action === "up" && activeIndex>=20) setActive(activeIndex-20);
       else if (action === "down" && activeIndex<180) setActive(activeIndex+20);
       else if (action === "backspace") { 
         if (cells[activeIndex].textContent) cells[activeIndex].textContent = "";
