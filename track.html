@@ -496,15 +496,17 @@
       // ----- configuration (identical functionality, no copyrighted design) -----
       const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRcCfqR0Yn3zjCBHYPT0gcPNcJjQ8QwgqsIyTbySG99R3l8VPsjotxwhasGL1yh6lLToq3G0p6AOZZR/pub?gid=0&single=true&output=csv";
 
+      // FIX: Updated rules to use positive offsets for future delivery estimates based on typical transit.
+      // Using the first scan (booking) as the base, then adding days based on current status.
       const ETA_RULES = {
-        "Item Booked": 7,
-        "Item Bagged": -1,
-        "Item Dispatched": -1,
-        "Item Received": -1,
-        "In-Transit": -1,
-        "Item Received at Delivery Office": -1,
-        "Out for delivery": -2,
-        "Delivered": 0
+        "Item Booked": 5,           // 5 days after booking
+        "Item Bagged": 4,            // 4 days left
+        "Item Dispatched": 3,         // 3 days left
+        "Item Received": 3,           // 3 days left
+        "In-Transit": 2,              // 2 days left
+        "Item Received at Delivery Office": 1,  // 1 day left
+        "Out for delivery": 0,         // today (delivery by 9pm)
+        "Delivered": 0                 // already delivered
       };
 
       // simple location mapping (no brand references)
@@ -598,22 +600,48 @@
         });
       }
 
+      // FIX: proper ETA calculation based on first scan date + offset derived from latest status rule
       function calculateETA(scans) {
         if (!scans.length) return null;
-        const sorted = [...scans].filter(s => s.timestamp).sort((a,b) => a.timestamp - b.timestamp);
-        if (sorted.length === 0) return null;
-        const baseDate = sorted[0].timestamp;
-        const latest = scans.filter(s => s.timestamp).sort((a,b) => b.timestamp - a.timestamp)[0] || scans[0];
+        // Get the earliest scan (shipment booked) as the base date
+        const sortedAsc = [...scans].filter(s => s.timestamp).sort((a,b) => a.timestamp - b.timestamp);
+        if (sortedAsc.length === 0) return null;
+        const baseDate = sortedAsc[0].timestamp; // booking / first event
+
+        // Get the latest status to determine remaining days
+        const sortedDesc = [...scans].filter(s => s.timestamp).sort((a,b) => b.timestamp - a.timestamp);
+        const latest = sortedDesc[0] || scans[0];
         const latestStatus = latest.status || '';
 
-        let daysToAdd = 0;
+        // If delivered, return null (no future ETA)
+        if (latestStatus.toLowerCase().includes('delivered')) return null;
+
+        let daysToAdd = 0; // default if no rule matches
         for (const [rule, days] of Object.entries(ETA_RULES)) {
           if (latestStatus.toLowerCase().includes(rule.toLowerCase())) {
             daysToAdd = days;
             break;
           }
         }
-        return new Date(baseDate.getTime() + daysToAdd * 86400000);
+
+        // Calculate ETA: baseDate + daysToAdd
+        // Ensure we don't return a date in the past; if baseDate+daysToAdd is before today, use today or a reasonable default? better to show future date.
+        let etaDate = new Date(baseDate.getTime() + daysToAdd * 86400000);
+        
+        // If etaDate is in the past (e.g., old shipment, or rule offset too small), adjust to at least tomorrow
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        if (etaDate < today) {
+          // For out for delivery same day, but if past, we assume today (by 9pm)
+          if (daysToAdd === 0) {
+            // out for delivery: should be today if not past 9pm? we show today anyway.
+            return new Date(); // today
+          }
+          // Otherwise shift to tomorrow or use a minimum of +1 day from today
+          etaDate = new Date(today.getTime() + 1 * 86400000);
+        }
+
+        return etaDate;
       }
 
       // ----- state and render -----
