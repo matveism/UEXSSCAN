@@ -96,7 +96,7 @@
     <label>Tracking Number:</label>
     <div class="input-row">
       <input type="text" id="trackInput" placeholder="Enter your tracking number" />
-      <button id="trackBtn">🔍 Track</button>
+      <button id="trackBtn" onclick="handleTrack()">🔍 Track</button>
     </div>
   </div>
   <div id="loadingState" class="loading" style="display:none;">
@@ -116,180 +116,20 @@
 <script>
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRcCfqR0Yn3zjCBHYPT0gcPNcJjQ8QwgqsIyTbySG99R3l8VPsjotxwhasGL1yh6lLToq3G0p6AOZZR/pub?gid=0&single=true&output=csv";
 
-// ETA calculation rules based on status
-const ETA_RULES = {
+// Updated ETA_OFFSETS with new statuses from the image
+const ETA_OFFSETS = {
   "Item Booked": 7,
-  "Item Bagged": -1,
-  "Item Dispatched": -1,
-  "Item Received": -1,
-  "In-Transit": -1,
-  "Item Received at Delivery Office": -1,
-  "Out for delivery": -2,
+  "Item Bagged": 6,
+  "Item Dispatched": 5,
+  "Item Received": 4,
+  "In-Transit": 3,
+  "Item Received at Delivery Office": 2,
+  "Out for Delivery": 1,
   "Delivered": 0
 };
 
-// Comprehensive US city database (major cities with their coordinates)
-const CITY_DATABASE = {
-  // Format: "lat,lng": "City, State ZIP"
-  "40.7128,-74.0060": "New York, NY 10001",
-  "34.0522,-118.2437": "Los Angeles, CA 90001",
-  "41.8781,-87.6298": "Chicago, IL 60601",
-  "29.7604,-95.3698": "Houston, TX 77001",
-  "39.9526,-75.1652": "Philadelphia, PA 19101",
-  "33.4484,-112.0740": "Phoenix, AZ 85001",
-  "29.4241,-98.4936": "San Antonio, TX 78201",
-  "32.7157,-117.1611": "San Diego, CA 92101",
-  "32.7767,-96.7970": "Dallas, TX 75201",
-  "37.3382,-121.8863": "San Jose, CA 95101",
-  "30.2672,-97.7431": "Austin, TX 78701",
-  "30.3322,-81.6557": "Jacksonville, FL 32201",
-  "37.7749,-122.4194": "San Francisco, CA 94101",
-  "39.7392,-104.9903": "Denver, CO 80201",
-  "38.9072,-77.0369": "Washington, DC 20001",
-  "42.3601,-71.0589": "Boston, MA 02101",
-  "36.1627,-86.7816": "Nashville, TN 37201",
-  "47.6062,-122.3321": "Seattle, WA 98101",
-  "35.2271,-80.8431": "Charlotte, NC 28201",
-  "35.1495,-90.0490": "Memphis, TN 38101",
-  "38.6270,-90.1994": "St. Louis, MO 63101",
-  "39.2904,-76.6122": "Baltimore, MD 21201",
-  "38.5767,-92.1735": "Jefferson City, MO 65101",
-  "44.9778,-93.2650": "Minneapolis, MN 55401",
-  "43.0389,-87.9065": "Milwaukee, WI 53201",
-  "32.2226,-110.9747": "Tucson, AZ 85701",
-  "36.7468,-119.7726": "Fresno, CA 93701",
-  "38.5816,-121.4944": "Sacramento, CA 95814",
-  "33.6846,-117.8265": "Irvine, CA 92602",
-  "37.6879,-97.3301": "Wichita, KS 67201",
-  "35.3733,-119.0187": "Bakersfield, CA 93301",
-  "39.5296,-119.8138": "Reno, NV 89501",
-  "36.1147,-115.1728": "Las Vegas, NV 89101",
-  "45.5152,-122.6784": "Portland, OR 97201",
-  "35.4676,-97.5164": "Oklahoma City, OK 73101",
-  "41.2587,-95.9379": "Omaha, NE 68101",
-  "37.4316,-78.6569": "Farmville, VA 23901",
-  "44.9907,-93.2753": "Minneapolis, MN 55408", // Your specific coordinates
-  "44.990713,-93.275276": "Minneapolis, MN 55408",
-  "44.990713": "Minneapolis, MN 55408", // Handle single coordinate
-  "44.990713, -93.275276": "Minneapolis, MN 55408",
-  "44.990713° N, 93.275276° W": "Minneapolis, MN 55408"
-};
-
-// Add more cities - you can expand this database
-// Format: "latitude,longitude": "City, State ZIP"
-
-// Function to extract lat/long from various formats
-function extractCoordinates(locationStr) {
-  if (!locationStr) return null;
-  
-  // Clean the string
-  const clean = locationStr.trim();
-  
-  // Pattern for "44.990713, -93.275276"
-  const commaPattern = /^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/;
-  // Pattern for "44.990713 -93.275276"
-  const spacePattern = /^(-?\d+\.?\d*)\s+(-?\d+\.?\d*)$/;
-  // Pattern for "44.990713" (single number)
-  const singlePattern = /^(-?\d+\.?\d*)$/;
-  // Pattern for "44.990713° N, 93.275276° W"
-  const dmsPattern = /(-?\d+\.?\d*)[°\s]*([NS])?\s*[,/\s]+\s*(-?\d+\.?\d*)[°\s]*([EW])?/i;
-  
-  let match = clean.match(commaPattern);
-  if (match) {
-    return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-  }
-  
-  match = clean.match(spacePattern);
-  if (match) {
-    return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
-  }
-  
-  match = clean.match(dmsPattern);
-  if (match) {
-    let lat = parseFloat(match[1]);
-    let lng = parseFloat(match[3]);
-    if (match[2] && match[2].toUpperCase() === 'S') lat = -Math.abs(lat);
-    if (match[4] && match[4].toUpperCase() === 'W') lng = -Math.abs(lng);
-    return { lat, lng };
-  }
-  
-  match = clean.match(singlePattern);
-  if (match) {
-    // If only latitude provided, use default longitude for demo
-    return { lat: parseFloat(match[1]), lng: -93.275276 };
-  }
-  
-  return null;
-}
-
-// Function to convert coordinates to city/state/zip using database
-function convertToLocation(locationStr) {
-  if (!locationStr) return null;
-  
-  // First check if it's already a readable location (contains letters)
-  if (/[a-zA-Z]/.test(locationStr)) {
-    return locationStr; // Return as-is
-  }
-  
-  // Try to extract coordinates
-  const coords = extractCoordinates(locationStr);
-  if (!coords) return locationStr;
-  
-  // Round coordinates to 4 decimal places for matching
-  const lat = coords.lat.toFixed(4);
-  const lng = coords.lng.toFixed(4);
-  
-  // Try exact match first
-  const exactKey = `${lat},${lng}`;
-  if (CITY_DATABASE[exactKey]) {
-    return CITY_DATABASE[exactKey];
-  }
-  
-  // Try rounded match (3 decimals)
-  const roundedKey = `${parseFloat(lat).toFixed(3)},${parseFloat(lng).toFixed(3)}`;
-  if (CITY_DATABASE[roundedKey]) {
-    return CITY_DATABASE[roundedKey];
-  }
-  
-  // Try without decimals
-  const intKey = `${Math.round(parseFloat(lat))},${Math.round(parseFloat(lng))}`;
-  if (CITY_DATABASE[intKey]) {
-    return CITY_DATABASE[intKey];
-  }
-  
-  // Try searching for nearby coordinates
-  for (const [key, value] of Object.entries(CITY_DATABASE)) {
-    const [dbLat, dbLng] = key.split(',').map(Number);
-    const distance = Math.sqrt(
-      Math.pow(dbLat - coords.lat, 2) + 
-      Math.pow(dbLng - coords.lng, 2)
-    );
-    
-    // If within ~50 miles (rough approximation)
-    if (distance < 0.5) {
-      return value;
-    }
-  }
-  
-  // If no match found, return formatted coordinates with a note
-  return `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)} (location lookup available)`;
-}
-
-// Function to combine date and time into a proper timestamp
-function createTimestamp(dateStr, timeStr) {
-  if (!dateStr) return null;
-  
-  // Clean up date string (remove st, nd, rd, th)
-  const cleanDate = dateStr.replace(/(\d+)(st|nd|rd|th)/g, '$1');
-  
-  let dateTimeStr = cleanDate;
-  if (timeStr && timeStr !== "NULL" && timeStr !== "") {
-    dateTimeStr = cleanDate + ' ' + timeStr;
-  }
-  
-  const timestamp = new Date(dateTimeStr);
-  return isNaN(timestamp) ? null : timestamp;
-}
+let allScans = [];
+let showFullHistory = false;
 
 function parseCSV(csvText) {
   const lines = csvText.split('\n');
@@ -298,11 +138,27 @@ function parseCSV(csvText) {
   return lines.slice(1)
     .filter(line => line.trim())
     .map(line => {
-      const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+      // Handle quoted fields properly
+      const values = [];
+      let inQuote = false;
+      let currentValue = '';
+      
+      for (let char of line) {
+        if (char === '"') {
+          inQuote = !inQuote;
+        } else if (char === ',' && !inQuote) {
+          values.push(currentValue);
+          currentValue = '';
+        } else {
+          currentValue += char;
+        }
+      }
+      values.push(currentValue); // Add the last value
+      
       const record = {};
       
       headers.forEach((header, index) => {
-        const value = values[index] || '';
+        const value = (values[index] || '').trim().replace(/"/g, '');
         const headerLower = header.toLowerCase().trim();
         
         if (headerLower === 'label_id') {
@@ -321,17 +177,21 @@ function parseCSV(csvText) {
           record.time = value;
         }
         else if (headerLower === 'location') {
-          // CONVERT lat/long to real location
-          record.raw_location = value;
-          record.location = convertToLocation(value);
+          record.location = value;
         }
         else if (headerLower === 'eta') {
           record.eta = value;
         }
       });
       
-      // Create combined timestamp from date and time
-      record.timestamp = createTimestamp(record.date, record.time);
+      // Create timestamp from date and time
+      if (record.date) {
+        let dateStr = record.date;
+        if (record.time && record.time !== "NULL" && record.time !== "") {
+          dateStr += ' ' + record.time;
+        }
+        record.timestamp = new Date(dateStr);
+      }
       
       return record;
     });
@@ -340,35 +200,29 @@ function parseCSV(csvText) {
 function calculateETA(scans) {
   if (!scans.length) return null;
   
-  // Sort by timestamp (oldest first) to get the starting point
-  const sorted = [...scans].sort((a, b) => {
-    if (!a.timestamp) return 1;
-    if (!b.timestamp) return -1;
-    return a.timestamp - b.timestamp;
-  });
+  // Sort by timestamp (oldest first for base date)
+  const sorted = [...scans].sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+  const baseDate = new Date(sorted[0].timestamp);
+  if (isNaN(baseDate)) return null;
   
-  const baseDate = sorted[0].timestamp;
-  if (!baseDate) return null;
-  
-  // Get the latest status for ETA calculation
-  const latestScan = scans.sort((a, b) => {
-    if (!a.timestamp) return 1;
-    if (!b.timestamp) return -1;
-    return b.timestamp - a.timestamp;
-  })[0];
-  
+  // Get latest status for ETA calculation
+  const latestScan = scans.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))[0];
   const latestStatus = latestScan.status;
   
   // Find matching rule (case insensitive partial match)
-  let daysToAdd = 0;
-  for (const [status, days] of Object.entries(ETA_RULES)) {
+  let daysToAdd = 5; // Default to 5 days if no match
+  for (const [status, days] of Object.entries(ETA_OFFSETS)) {
     if (latestStatus.toLowerCase().includes(status.toLowerCase())) {
       daysToAdd = days;
       break;
     }
   }
   
-  // Calculate ETA based on latest status and base date
+  // If delivered, return null
+  if (latestStatus.toLowerCase().includes("delivered")) {
+    return null;
+  }
+  
   return new Date(baseDate.getTime() + daysToAdd * 86400000);
 }
 
@@ -400,11 +254,9 @@ async function handleTrack() {
       return;
     }
     
-    // Sort by timestamp (newest first) - only keep records with valid timestamps
-    const validScans = filtered.filter(r => r.timestamp);
-    validScans.sort((a, b) => b.timestamp - a.timestamp);
-    
-    allScans = validScans.length ? validScans : filtered;
+    // Sort by timestamp (newest first)
+    filtered.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+    allScans = filtered;
     renderResults(input);
   } catch (err) {
     document.getElementById("errorState").textContent = err.message || "Failed to connect";
@@ -428,7 +280,7 @@ function renderResults(trackingNumber) {
     const year = eta.getFullYear();
     etaHTML = `
       <div class="eta-section">
-        <p class="eta-label">Expected Delivery</p>
+        <p class="eta-label">Expected Delivery on</p>
         <div class="eta-display">
           <div>
             <p class="eta-weekday">${weekday}</p>
@@ -481,6 +333,7 @@ function renderTimeline() {
     const s = ev.status.toLowerCase();
     const isDelivered = s.includes("delivered");
     const isOFD = s.includes("out for delivery");
+    const date = ev.timestamp ? new Date(ev.timestamp) : null;
     
     let dotHTML;
     if (isDelivered) {
@@ -492,28 +345,14 @@ function renderTimeline() {
     }
     
     const connector = i < events.length - 1 ? '<div class="connector"></div>' : '';
-    
-    // Format date from timestamp
-    let dateStr = "";
-    if (ev.timestamp) {
-      dateStr = ev.timestamp.toLocaleDateString("en-US", { 
-        month: "long", 
-        day: "numeric", 
-        year: "numeric"
-      });
-      
-      // Add time if available
-      if (ev.time && ev.time !== "NULL" && ev.time !== "") {
-        dateStr += " at " + ev.time;
-      }
-    }
+    const dateStr = date ? date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) + ", " + date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
     
     html += `
       <div class="timeline-row">
         <div class="timeline-col">${dotHTML}${connector}</div>
         <div>
           <p class="event-status ${isDelivered ? 'delivered' : ''}">${ev.status}</p>
-          ${ev.location && ev.location !== "N/A" ? '<p class="event-detail">' + ev.location + '</p>' : ''}
+          ${ev.location ? '<p class="event-detail">' + ev.location + '</p>' : ''}
           ${dateStr ? '<p class="event-detail">' + dateStr + '</p>' : ''}
         </div>
       </div>`;
@@ -533,14 +372,9 @@ function toggleHistory() {
   renderTimeline();
 }
 
-// Event listeners
-document.getElementById("trackBtn").addEventListener("click", handleTrack);
 document.getElementById("trackInput").addEventListener("keydown", function(e) {
   if (e.key === "Enter") handleTrack();
 });
-
-// Initialize empty state
-document.getElementById("emptyState").style.display = "block";
 </script>
 </body>
 </html>
