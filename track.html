@@ -462,18 +462,6 @@
       "Out for delivery": 0, "Delivered": 0
     };
 
-    // location reverse lookup (dummy city db)
-    const CITY_DATABASE = {
-      "40.7128,-74.0060": "New York, NY 10001",
-      "34.0522,-118.2437": "Los Angeles, CA 90001",
-      "41.8781,-87.6298": "Chicago, IL 60601",
-      "29.7604,-95.3698": "Houston, TX 77001",
-      "39.9526,-75.1652": "Philadelphia, PA 19101",
-      "37.7749,-122.4194": "San Francisco, CA 94101",
-      "47.6062,-122.3321": "Seattle, WA 98101",
-      "44.9907,-93.2753": "Minneapolis, MN 55408"
-    };
-
     // ----- helper functions (parsing, coords, location) -----
     function extractCoordinates(locStr) {
       if (!locStr) return null;
@@ -485,46 +473,60 @@
       return null;
     }
 
-    function convertToLocation(locationStr) {
-      if (!locationStr) return null;
-      // If it contains letters, it's already a text location
-      if (/[a-zA-Z]/.test(locationStr)) return locationStr;
+    // FIXED: Better date parsing
+    function createTimestamp(dateStr, timeStr) {
+      if (!dateStr || dateStr === "NULL" || dateStr === "") return null;
       
-      const coords = extractCoordinates(locationStr);
-      if (!coords) return locationStr;
+      console.log("Raw date:", dateStr, "Raw time:", timeStr);
       
-      const lat = coords.lat.toFixed(4), lng = coords.lng.toFixed(4);
-      const key = `${lat},${lng}`;
+      // Try multiple date formats
+      let timestamp = null;
       
-      if (CITY_DATABASE[key]) return CITY_DATABASE[key];
-      
-      // fuzzy match
-      for (const [k, v] of Object.entries(CITY_DATABASE)) {
-        const [dbLat, dbLng] = k.split(',').map(Number);
-        if (Math.abs(dbLat - coords.lat) < 0.5 && Math.abs(dbLng - coords.lng) < 0.5) {
-          return v;
+      // Format: "6-Mar-2025" or similar
+      const parts = dateStr.split(/[-\/]/);
+      if (parts.length === 3) {
+        // Try to parse as DD-MMM-YYYY
+        const day = parseInt(parts[0]);
+        const month = parts[1];
+        const year = parseInt(parts[2]);
+        
+        const monthMap = {
+          'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+          'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+        };
+        
+        if (monthMap[month.toLowerCase().substring(0,3)] !== undefined) {
+          timestamp = new Date(year, monthMap[month.toLowerCase().substring(0,3)], day);
         }
       }
       
-      return `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
-    }
-
-    function createTimestamp(dateStr, timeStr) {
-      if (!dateStr) return null;
-      
-      // Remove ordinal suffixes (st, nd, rd, th)
-      const clean = dateStr.replace(/(\d+)(st|nd|rd|th)/g, '$1');
-      let dateTimeStr = clean;
-      
-      if (timeStr && timeStr !== "NULL" && timeStr !== "") {
-        dateTimeStr += ' ' + timeStr;
+      // If that fails, try standard Date parsing
+      if (!timestamp || isNaN(timestamp)) {
+        timestamp = new Date(dateStr);
       }
       
-      const ts = new Date(dateTimeStr);
-      return isNaN(ts) ? null : ts;
+      // Add time if available
+      if (timestamp && !isNaN(timestamp) && timeStr && timeStr !== "NULL" && timeStr !== "") {
+        const timeParts = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+        if (timeParts) {
+          let hours = parseInt(timeParts[1]);
+          const minutes = parseInt(timeParts[2]);
+          const ampm = timeParts[3];
+          
+          if (ampm) {
+            if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
+            if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+          }
+          
+          timestamp.setHours(hours, minutes, 0);
+        }
+      }
+      
+      console.log("Parsed timestamp:", timestamp);
+      return (!timestamp || isNaN(timestamp)) ? null : timestamp;
     }
 
-    // Improved CSV parser that handles quoted fields and commas within fields
+    // Improved CSV parser
     function parseCSVLine(line) {
       const result = [];
       let current = '';
@@ -543,21 +545,19 @@
         }
       }
       
-      result.push(current); // Add the last field
-      return result.map(field => field.trim());
+      result.push(current);
+      return result.map(field => field.trim().replace(/^"|"$/g, ''));
     }
 
     function parseCSV(csvText) {
       const lines = csvText.split('\n').filter(l => l.trim() !== '');
       if (!lines.length) return [];
       
-      // Parse headers
       const headerLine = lines[0];
       const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
       
       const records = [];
       
-      // Parse each data line
       for (let i = 1; i < lines.length; i++) {
         const values = parseCSVLine(lines[i]);
         const rec = {};
@@ -565,7 +565,7 @@
         headers.forEach((h, idx) => {
           const val = values[idx] || '';
           
-          if (h.includes('label') || h.includes('id')) {
+          if (h.includes('label') || h.includes('id') || h === 'tracking') {
             rec.label_id = val;
           } else if (h.includes('barcode')) {
             rec.barcode_type = val;
@@ -577,9 +577,8 @@
             rec.time = val;
           } else if (h.includes('location')) {
             rec.raw_location = val;
-            rec.location = convertToLocation(val);
-          } else if (h.includes('eta')) {
-            rec.eta = val;
+            // Don't convert coordinates here, keep raw for map
+            rec.location = val;
           }
         });
         
@@ -596,8 +595,7 @@
       if (!sortedAsc.length) return null;
       
       const base = sortedAsc[0].timestamp;
-      const sortedDesc = [...scans].filter(s => s.timestamp).sort((a,b) => b.timestamp - a.timestamp);
-      const latest = sortedDesc[0] || scans[0];
+      const latest = scans.sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
       const status = latest.status || '';
       
       if (status.toLowerCase().includes('delivered')) return null;
@@ -628,7 +626,7 @@
     let marker = null;
     let currentTrackingNumber = '';
 
-    // ----- render left panel with map container -----
+    // ----- render left panel with Google Maps -----
     function renderLeftPanel(trackingNumber, latest, etaDate, isDelivered, coords) {
       let etaHtml = '';
       if (etaDate && !isDelivered) {
@@ -653,12 +651,13 @@
 
       const locDisplay = latest.location || 'Location not available';
       
-      // Determine map status text based on actual data
-      let mapStatus = 'last known location';
-      if (isDelivered) {
-        mapStatus = 'final delivery location';
-      } else if (coords) {
-        mapStatus = 'last scan location from tracking data';
+      // Create Google Maps iframe URL
+      let mapSrc = "https://maps.google.com/maps?q=USA&z=4&output=embed";
+      if (coords) {
+        mapSrc = `https://maps.google.com/maps?q=${coords.lat},${coords.lng}&z=15&output=embed`;
+      } else if (latest.location && /[a-zA-Z]/.test(latest.location)) {
+        // If we have a text location, geocode it roughly
+        mapSrc = `https://maps.google.com/maps?q=${encodeURIComponent(latest.location)}&z=13&output=embed`;
       }
 
       document.getElementById('leftPanel').innerHTML = `
@@ -671,59 +670,33 @@
         <div class="status-badge">latest status</div>
         <div class="status-value ${isDelivered ? 'delivered' : ''}">${latest.status || 'Unknown'}</div>
         ${etaHtml}
-        <div class="map-container" id="mapContainer">
-          <div id="liveMap" style="height: 200px; width: 100%;"></div>
+        <div class="map-container" style="height: 250px; width: 100%; margin: 15px 0; border-radius: 8px; overflow: hidden; border: 1px solid #ddd;">
+          <iframe
+            width="100%"
+            height="100%"
+            style="border:0"
+            loading="lazy"
+            allowfullscreen
+            referrerpolicy="no-referrer-when-downgrade"
+            src="${mapSrc}">
+          </iframe>
         </div>
-        <div class="map-note">📍 ${mapStatus}</div>
+        <div class="map-note">📍 ${coords ? 'Exact location from tracking data' : 'Approximate location'}</div>
         <div class="detail-grid">
           <div><span class="label">type: </span><span class="val">${latest.barcode_type || 'N/A'}</span></div>
           <div><span class="label">location: </span><span class="val">${locDisplay}</span></div>
         </div>
       `;
-
-      // Initialize map after element exists
-      setTimeout(() => {
-        const mapDiv = document.getElementById('liveMap');
-        if (!mapDiv) return;
-
-        // Clean up old map
-        if (map) { 
-          map.remove(); 
-          map = null; 
-          marker = null; 
-        }
-
-        if (coords) {
-          // Show REAL coordinates from the spreadsheet
-          map = L.map('liveMap').setView([coords.lat, coords.lng], 14);
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
-          
-          // Use standard marker for all locations (no fake truck)
-          marker = L.marker([coords.lat, coords.lng]).addTo(map);
-          
-          // Set popup text based on actual status
-          if (isDelivered) {
-            marker.bindPopup('✓ Delivered at this location').openPopup();
-          } else {
-            marker.bindPopup(`📍 Last scan: ${latest.status || 'Package'}<br>${locDisplay}`).openPopup();
-          }
-        } else {
-          // Default US view if no coordinates
-          map = L.map('liveMap').setView([39.8283, -98.5795], 4);
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
-          L.marker([39.8283, -98.5795]).addTo(map).bindPopup('📍 Approximate location<br>Precise coordinates not available');
-        }
-      }, 100);
     }
 
-    // ----- render timeline -----
+    // ----- render timeline with proper dates -----
     function renderTimeline() {
       if (!allScans || allScans.length === 0) {
         document.getElementById('timelinePanel').innerHTML = '<p>No tracking history available</p>';
         return;
       }
       
-      const events = showFullHistory ? allScans : allScans.slice(0, 2);
+      const events = showFullHistory ? allScans : allScans.slice(0, 5); // Show more by default
       let html = '<h3 class="timeline-title">tracking history</h3><div class="timeline">';
 
       events.forEach((ev, i) => {
@@ -737,15 +710,22 @@
 
         const connector = (i < events.length - 1) ? '<div class="connector"></div>' : '';
 
+        // FIXED: Better date formatting
         let dateStr = 'Date not available';
         if (ev.timestamp) {
           dateStr = ev.timestamp.toLocaleDateString('en-US', { 
-            month: 'long', 
+            month: 'short', 
             day: 'numeric', 
             year: 'numeric' 
           });
           if (ev.time && ev.time !== 'NULL' && ev.time !== '') {
             dateStr += ' at ' + ev.time;
+          }
+        } else if (ev.date) {
+          // Show raw date if timestamp parsing failed
+          dateStr = ev.date;
+          if (ev.time && ev.time !== 'NULL' && ev.time !== '') {
+            dateStr += ' ' + ev.time;
           }
         }
 
@@ -756,8 +736,8 @@
             </div>
             <div>
               <p class="event-status ${isDelivered ? 'delivered' : ''}">${ev.status || 'Unknown status'}</p>
-              ${ev.location && ev.location !== 'N/A' ? `<p class="event-detail">📍 ${ev.location}</p>` : ''}
-              <p class="event-detail">${dateStr}</p>
+              ${ev.location && ev.location !== 'N/A' && ev.location !== 'NULL' ? `<p class="event-detail">📍 ${ev.location}</p>` : ''}
+              <p class="event-detail">📅 ${dateStr}</p>
             </div>
           </div>
         `;
@@ -765,7 +745,7 @@
 
       html += '</div>';
       
-      if (allScans.length > 2) {
+      if (allScans.length > 5) {
         html += `<button class="show-history" onclick="window.toggleHistory()">${showFullHistory ? '− hide full history' : '+ show full history (' + allScans.length + ' events)'}</button>`;
       }
       
@@ -789,22 +769,23 @@
       document.getElementById('emptyState').style.display = 'none';
 
       try {
+        console.log('Fetching CSV...');
         const resp = await fetch(CSV_URL);
         if (!resp.ok) throw new Error('Network error');
         
         const csv = await resp.text();
-        console.log('CSV loaded, length:', csv.length);
+        console.log('CSV loaded, first 200 chars:', csv.substring(0, 200));
         
         const records = parseCSV(csv);
-        console.log('Parsed records:', records.length);
+        console.log('All records:', records);
         
-        // Case-insensitive search with trimming
+        // Case-insensitive search
         const searchTerm = input.toLowerCase().trim();
         const filtered = records.filter(r => 
           r.label_id && r.label_id.toLowerCase().trim() === searchTerm
         );
 
-        console.log('Filtered records for', input, ':', filtered.length);
+        console.log('Filtered records for', input, ':', filtered);
 
         if (filtered.length === 0) {
           document.getElementById('errorState').textContent = `✗ No shipment found for "${input}"`;
@@ -825,17 +806,17 @@
         // Get latest scan
         const latest = allScans[0];
         
-        // Extract REAL coordinates from raw_location
+        // Extract coordinates if available
         let coords = null;
         if (latest.raw_location) {
           coords = extractCoordinates(latest.raw_location);
-          console.log('Real coordinates from data:', coords);
+          console.log('Coordinates from data:', coords);
         }
         
         const eta = calculateETA(allScans);
         const isDelivered = latest.status ? latest.status.toLowerCase().includes('delivered') : false;
 
-        // Show dashboard with REAL location
+        // Show dashboard
         document.getElementById('dashboard').style.display = 'grid';
         renderLeftPanel(input, latest, eta, isDelivered, coords);
         renderTimeline();
