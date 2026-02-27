@@ -626,56 +626,7 @@
     let showFullHistory = false;
     let map = null;
     let marker = null;
-    let watchInterval = null;
     let currentTrackingNumber = '';
-
-    // ----- real‑time simulation (moving dot when out for delivery) -----
-    function startLiveTrackingIfOutForDelivery(status, initialCoords) {
-      stopLiveTracking();
-      if (!status || !status.toLowerCase().includes('out for delivery')) return;
-      if (!initialCoords) return;
-
-      if (!map) {
-        const mapDiv = document.getElementById('liveMap');
-        if (!mapDiv) return;
-        
-        map = L.map('liveMap').setView([initialCoords.lat, initialCoords.lng], 15);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; OpenStreetMap'
-        }).addTo(map);
-        
-        marker = L.marker([initialCoords.lat, initialCoords.lng], {
-          icon: L.divIcon({ className: 'custom-marker', html: '🚚', iconSize: [24,24] })
-        }).addTo(map);
-      } else {
-        marker.setLatLng([initialCoords.lat, initialCoords.lng]);
-        map.panTo([initialCoords.lat, initialCoords.lng]);
-      }
-
-      // Simulate movement
-      let step = 0;
-      const path = [
-        [initialCoords.lat, initialCoords.lng],
-        [initialCoords.lat + 0.001, initialCoords.lng - 0.0005],
-        [initialCoords.lat + 0.002, initialCoords.lng - 0.0012],
-        [initialCoords.lat + 0.0025, initialCoords.lng - 0.002],
-        [initialCoords.lat + 0.003, initialCoords.lng - 0.0028],
-      ];
-      
-      watchInterval = setInterval(() => {
-        step = (step + 1) % path.length;
-        const pos = path[step];
-        marker.setLatLng(pos);
-        map.panTo(pos);
-      }, 3500);
-    }
-
-    function stopLiveTracking() {
-      if (watchInterval) {
-        clearInterval(watchInterval);
-        watchInterval = null;
-      }
-    }
 
     // ----- render left panel with map container -----
     function renderLeftPanel(trackingNumber, latest, etaDate, isDelivered, coords) {
@@ -701,8 +652,14 @@
       }
 
       const locDisplay = latest.location || 'Location not available';
-      const mapStatus = isDelivered ? 'final delivery location' : 
-                       (latest.status && latest.status.toLowerCase().includes('out for delivery') ? '🚚 live driver position (simulated)' : 'location approximate');
+      
+      // Determine map status text based on actual data
+      let mapStatus = 'last known location';
+      if (isDelivered) {
+        mapStatus = 'final delivery location';
+      } else if (coords) {
+        mapStatus = 'last scan location from tracking data';
+      }
 
       document.getElementById('leftPanel').innerHTML = `
         <p class="tracking-label">tracking number</p>
@@ -717,7 +674,7 @@
         <div class="map-container" id="mapContainer">
           <div id="liveMap" style="height: 200px; width: 100%;"></div>
         </div>
-        <div class="map-note">${mapStatus}</div>
+        <div class="map-note">📍 ${mapStatus}</div>
         <div class="detail-grid">
           <div><span class="label">type: </span><span class="val">${latest.barcode_type || 'N/A'}</span></div>
           <div><span class="label">location: </span><span class="val">${locDisplay}</span></div>
@@ -737,27 +694,24 @@
         }
 
         if (coords) {
+          // Show REAL coordinates from the spreadsheet
           map = L.map('liveMap').setView([coords.lat, coords.lng], 14);
           L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
           
+          // Use standard marker for all locations (no fake truck)
+          marker = L.marker([coords.lat, coords.lng]).addTo(map);
+          
+          // Set popup text based on actual status
           if (isDelivered) {
-            marker = L.marker([coords.lat, coords.lng]).addTo(map);
-            marker.bindPopup('✓ Delivered here').openPopup();
-          } else if (latest.status && latest.status.toLowerCase().includes('out for delivery')) {
-            marker = L.marker([coords.lat, coords.lng], {
-              icon: L.divIcon({ html: '🚚', className: '', iconSize: [24,24] })
-            }).addTo(map);
-            marker.bindPopup('Driver en route').openPopup();
-            startLiveTrackingIfOutForDelivery(latest.status, coords);
+            marker.bindPopup('✓ Delivered at this location').openPopup();
           } else {
-            marker = L.marker([coords.lat, coords.lng]).addTo(map);
-            marker.bindPopup('Last scan location').openPopup();
+            marker.bindPopup(`📍 Last scan: ${latest.status || 'Package'}<br>${locDisplay}`).openPopup();
           }
         } else {
           // Default US view if no coordinates
           map = L.map('liveMap').setView([39.8283, -98.5795], 4);
           L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
-          L.marker([39.8283, -98.5795]).addTo(map).bindPopup('Precise location not available');
+          L.marker([39.8283, -98.5795]).addTo(map).bindPopup('📍 Approximate location<br>Precise coordinates not available');
         }
       }, 100);
     }
@@ -802,7 +756,7 @@
             </div>
             <div>
               <p class="event-status ${isDelivered ? 'delivered' : ''}">${ev.status || 'Unknown status'}</p>
-              ${ev.location && ev.location !== 'N/A' ? `<p class="event-detail">${ev.location}</p>` : ''}
+              ${ev.location && ev.location !== 'N/A' ? `<p class="event-detail">📍 ${ev.location}</p>` : ''}
               <p class="event-detail">${dateStr}</p>
             </div>
           </div>
@@ -828,8 +782,6 @@
       const input = document.getElementById('trackInput').value.trim();
       if (!input) return;
 
-      stopLiveTracking();
-      
       // Show loading state
       document.getElementById('loadingState').style.display = 'block';
       document.getElementById('errorState').style.display = 'none';
@@ -873,17 +825,17 @@
         // Get latest scan
         const latest = allScans[0];
         
-        // Extract coordinates from raw_location if available
+        // Extract REAL coordinates from raw_location
         let coords = null;
         if (latest.raw_location) {
           coords = extractCoordinates(latest.raw_location);
-          console.log('Extracted coordinates:', coords);
+          console.log('Real coordinates from data:', coords);
         }
         
         const eta = calculateETA(allScans);
         const isDelivered = latest.status ? latest.status.toLowerCase().includes('delivered') : false;
 
-        // Show dashboard
+        // Show dashboard with REAL location
         document.getElementById('dashboard').style.display = 'grid';
         renderLeftPanel(input, latest, eta, isDelivered, coords);
         renderTimeline();
