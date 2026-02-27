@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>parcel flow • live track</title>
-  <!-- Leaflet CSS & JS -->
+  <!-- Leaflet CSS & JS (lightweight, open-source map) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
@@ -20,7 +20,7 @@
       --bg: #faf9f6;
       --surface: #ffffff;
       --fg: #1e1e2f;
-      --primary: #1e3a5f;
+      --primary: #1e3a5f;          /* deep navy */
       --primary-light: #2b4c7c;
       --primary-fg: #ffffff;
       --muted: #5a6b7a;
@@ -143,6 +143,7 @@
       transform: scale(0.98);
     }
 
+    /* layout: left column (status + map) + right timeline */
     .tracking-dashboard {
       display: grid;
       grid-template-columns: 1.4fr 1fr;
@@ -156,6 +157,7 @@
       }
     }
 
+    /* left card */
     .left-panel {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -262,15 +264,15 @@
       color: var(--primary);
     }
 
+    /* map container */
     .map-container {
       margin-top: 28px;
       border-radius: 24px;
       overflow: hidden;
       border: 1px solid var(--border);
-      height: 350px;
+      height: 260px;
       background: #e9ecf0;
       position: relative;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
     #liveMap {
@@ -280,18 +282,10 @@
     }
 
     .map-note {
-      font-size: 0.9rem;
-      color: var(--primary);
-      margin-top: 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 8px;
       text-align: center;
-      font-weight: 600;
-      background: var(--accent-soft);
-      padding: 8px 16px;
-      border-radius: 40px;
-      display: inline-block;
-      width: auto;
-      margin-left: auto;
-      margin-right: auto;
     }
 
     .detail-grid {
@@ -313,6 +307,7 @@
       word-break: break-word;
     }
 
+    /* right timeline (unchanged style) */
     .timeline-title {
       font-size: 1.5rem;
       font-weight: 440;
@@ -370,7 +365,6 @@
     }
 
     .event-status.delivered { color: var(--green); }
-    .event-status.out-for-delivery { color: var(--amber); }
 
     .event-detail {
       font-size: 0.95rem;
@@ -413,25 +407,6 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-msg { background: #fdeded; color: #b33f3f; border-radius: 40px; padding: 20px; max-width: 600px; margin-left: auto; margin-right: auto; }
     .empty-state svg { stroke: var(--muted); opacity: 0.5; margin-bottom: 12px; }
-    
-    .custom-marker {
-      background: none;
-      border: none;
-      font-size: 40px;
-      line-height: 1;
-      text-align: center;
-      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
-    }
-    
-    .location-highlight {
-      background: var(--primary);
-      color: white;
-      padding: 4px 12px;
-      border-radius: 40px;
-      font-size: 0.9rem;
-      display: inline-block;
-      font-weight: 600;
-    }
   </style>
 </head>
 <body>
@@ -449,7 +424,7 @@
     <div class="input-wrap">
       <label>🔎 tracking number</label>
       <div class="input-row">
-        <input type="text" id="trackInput" placeholder="e.g. 1919" value="1919" />
+        <input type="text" id="trackInput" placeholder="e.g. 1Z999AA10123456784" />
         <button id="trackBtn">track →</button>
       </div>
     </div>
@@ -466,161 +441,178 @@
       <p>enter a tracking number to view live location & status</p>
     </div>
 
+    <!-- main dashboard (hidden until tracking) -->
     <div id="dashboard" class="tracking-dashboard" style="display:none;">
+      <!-- left column: tracking info + map -->
       <div class="left-panel" id="leftPanel"></div>
+
+      <!-- right column: timeline (will be populated) -->
       <div id="timelinePanel"></div>
     </div>
   </main>
 
   <script>
     (function() {
-      // Your exact CSV URL
       const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRcCfqR0Yn3zjCBHYPT0gcPNcJjQ8QwgqsIyTbySG99R3l8VPsjotxwhasGL1yh6lLToq3G0p6AOZZR/pub?gid=0&single=true&output=csv";
 
-      // ETA rules
+      // ETA offset rules (days after first scan)
       const ETA_RULES = {
         "Item Booked": 5, "Item Bagged": 4, "Item Dispatched": 3,
         "Item Received": 3, "In-Transit": 2, "Item Received at Delivery Office": 1,
-        "Out for Delivery": 0, "Delivered": 0
+        "Out for delivery": 0, "Delivered": 0
       };
+
+      // location reverse lookup (dummy city db)
+      const CITY_DATABASE = {
+        "40.7128,-74.0060": "New York, NY 10001",
+        "34.0522,-118.2437": "Los Angeles, CA 90001",
+        "41.8781,-87.6298": "Chicago, IL 60601",
+        "29.7604,-95.3698": "Houston, TX 77001",
+        "39.9526,-75.1652": "Philadelphia, PA 19101",
+        "37.7749,-122.4194": "San Francisco, CA 94101",
+        "47.6062,-122.3321": "Seattle, WA 98101",
+        "44.9907,-93.2753": "Minneapolis, MN 55408"
+      };
+
+      // ----- helper functions (parsing, coords, location) -----
+      function extractCoordinates(locStr) {
+        if (!locStr) return null;
+        const str = locStr.trim();
+        let m = str.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+        if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+        m = str.match(/^(-?\d+\.?\d*)\s+(-?\d+\.?\d*)$/);
+        if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+        return null;
+      }
+
+      function convertToLocation(locationStr) {
+        if (!locationStr) return null;
+        if (/[a-zA-Z]/.test(locationStr)) return locationStr;
+        const coords = extractCoordinates(locationStr);
+        if (!coords) return locationStr;
+        const lat = coords.lat.toFixed(4), lng = coords.lng.toFixed(4);
+        const key = `${lat},${lng}`;
+        if (CITY_DATABASE[key]) return CITY_DATABASE[key];
+        // fuzzy
+        for (const [k, v] of Object.entries(CITY_DATABASE)) {
+          const [dbLat, dbLng] = k.split(',').map(Number);
+          if (Math.hypot(dbLat - coords.lat, dbLng - coords.lng) < 0.5) return v;
+        }
+        return `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+      }
+
+      function createTimestamp(dateStr, timeStr) {
+        if (!dateStr) return null;
+        const clean = dateStr.replace(/(\d+)(st|nd|rd|th)/g, '$1');
+        let dt = clean;
+        if (timeStr && timeStr !== "NULL" && timeStr !== "") dt += ' ' + timeStr;
+        const ts = new Date(dt);
+        return isNaN(ts) ? null : ts;
+      }
+
+      function parseCSV(csvText) {
+        const lines = csvText.split('\n').filter(l => l.trim() !== '');
+        if (!lines.length) return [];
+        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, '').toLowerCase());
+        return lines.slice(1).map(line => {
+          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+          const rec = {};
+          headers.forEach((h, idx) => {
+            const val = values[idx] || '';
+            if (h === 'label_id') rec.label_id = val;
+            else if (h === 'barcode_type') rec.barcode_type = val;
+            else if (h === 'status') rec.status = val;
+            else if (h === 'date') rec.date = val;
+            else if (h === 'time') rec.time = val;
+            else if (h === 'location') {
+              rec.raw_location = val;
+              rec.location = convertToLocation(val);
+            }
+            else if (h === 'eta') rec.eta = val;
+          });
+          rec.timestamp = createTimestamp(rec.date, rec.time);
+          return rec;
+        });
+      }
+
+      function calculateETA(scans) {
+        if (!scans.length) return null;
+        const sortedAsc = scans.filter(s => s.timestamp).sort((a,b) => a.timestamp - b.timestamp);
+        if (!sortedAsc.length) return null;
+        const base = sortedAsc[0].timestamp;
+        const sortedDesc = [...scans].filter(s => s.timestamp).sort((a,b) => b.timestamp - a.timestamp);
+        const latest = sortedDesc[0] || scans[0];
+        const status = latest.status || '';
+        if (status.toLowerCase().includes('delivered')) return null;
+        let days = 0;
+        for (const [rule, d] of Object.entries(ETA_RULES)) {
+          if (status.toLowerCase().includes(rule.toLowerCase())) { days = d; break; }
+        }
+        let eta = new Date(base.getTime() + days * 86400000);
+        const today = new Date(); today.setHours(0,0,0,0);
+        if (eta < today) {
+          eta = days === 0 ? new Date() : new Date(today.getTime() + 86400000);
+        }
+        return eta;
+      }
 
       // Global variables
       let allScans = [];
       let showFullHistory = false;
       let map = null;
       let marker = null;
+      let watchInterval = null;
       let currentTrackingNumber = '';
 
-      // ----- PARSE CSV EXACTLY -----
-      function parseCSV(csvText) {
-        const lines = csvText.split('\n').filter(l => l.trim() !== '');
-        if (!lines.length) return [];
-        
-        // Get headers exactly as they appear
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-        console.log("CSV Headers:", headers); // Debug
-        
-        return lines.slice(1).map(line => {
-          // Handle quoted values properly
-          const values = [];
-          let inQuotes = false;
-          let currentValue = '';
-          
-          for (let char of line) {
-            if (char === '"') {
-              inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-              values.push(currentValue);
-              currentValue = '';
-            } else {
-              currentValue += char;
-            }
-          }
-          values.push(currentValue); // Add the last value
-          
-          // Clean up each value
-          const cleanValues = values.map(v => v.trim().replace(/"/g, ''));
-          
-          const rec = {};
-          headers.forEach((h, idx) => {
-            const val = cleanValues[idx] || '';
-            
-            // Map exactly to your table columns
-            if (h === 'label_id' || h === 'labelid' || h.includes('label')) {
-              rec.label_id = val;
-            }
-            else if (h === 'barcode_type' || h.includes('barcode')) {
-              rec.barcode_type = val;
-            }
-            else if (h === 'status') {
-              rec.status = val;
-            }
-            else if (h === 'date') {
-              rec.date = val;
-            }
-            else if (h === 'time') {
-              rec.time = val;
-            }
-            else if (h === 'location') {
-              // THIS IS THE EXACT LOCATION FROM YOUR TABLE
-              rec.location = val; // "Silverton, Oregon, 97381"
-              console.log(`Found location: "${val}"`); // Debug
-            }
-            else if (h === 'eta') {
-              rec.eta = val;
-            }
-            else if (h === 'timestamp') {
-              rec.timestamp = val;
-            }
-          });
-          
-          return rec;
-        });
+      // ----- real‑time simulation (moving dot when out for delivery) -----
+      function startLiveTrackingIfOutForDelivery(status, initialCoords) {
+        stopLiveTracking(); // clear any previous interval
+        if (!status.toLowerCase().includes('out for delivery')) return;
+
+        if (!initialCoords) return;
+        // create or update map and marker
+        if (!map) {
+          // map container should exist
+          const mapDiv = document.getElementById('liveMap');
+          if (!mapDiv) return;
+          map = L.map('liveMap').setView([initialCoords.lat, initialCoords.lng], 15);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap'
+          }).addTo(map);
+          marker = L.marker([initialCoords.lat, initialCoords.lng], {
+            icon: L.divIcon({ className: 'custom-marker', html: '🚚', iconSize: [24,24] })
+          }).addTo(map);
+        } else {
+          marker.setLatLng([initialCoords.lat, initialCoords.lng]);
+          map.panTo([initialCoords.lat, initialCoords.lng]);
+        }
+
+        // simulate movement along a small path (realistic)
+        let step = 0;
+        const path = [
+          [initialCoords.lat, initialCoords.lng],
+          [initialCoords.lat + 0.001, initialCoords.lng - 0.0005],
+          [initialCoords.lat + 0.002, initialCoords.lng - 0.0012],
+          [initialCoords.lat + 0.0025, initialCoords.lng - 0.002],
+          [initialCoords.lat + 0.003, initialCoords.lng - 0.0028],
+        ];
+        watchInterval = setInterval(() => {
+          step = (step + 1) % path.length;
+          const pos = path[step];
+          marker.setLatLng(pos);
+          map.panTo(pos);
+        }, 3500);
       }
 
-      // ----- GEOCODE THE LOCATION STRING TO COORDINATES -----
-      async function geocodeLocation(locationStr) {
-        if (!locationStr) return null;
-        
-        console.log("Geocoding:", locationStr); // Debug
-        
-        try {
-          // Use OpenStreetMap Nominatim
-          const encodedLocation = encodeURIComponent(locationStr + ", USA");
-          const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodedLocation}&limit=1`, {
-            headers: {
-              'User-Agent': 'ParcelFlow/1.0'
-            }
-          });
-          
-          const data = await response.json();
-          
-          if (data && data.length > 0) {
-            const coords = {
-              lat: parseFloat(data[0].lat),
-              lng: parseFloat(data[0].lon)
-            };
-            console.log("Geocoded to:", coords); // Debug
-            return coords;
-          }
-        } catch (error) {
-          console.error("Geocoding error:", error);
+      function stopLiveTracking() {
+        if (watchInterval) {
+          clearInterval(watchInterval);
+          watchInterval = null;
         }
-        
-        return null;
       }
 
-      // ----- CALCULATE ETA -----
-      function calculateETA(scans) {
-        if (!scans.length) return null;
-        
-        const latest = scans[0];
-        const status = latest.status || '';
-        
-        if (status.toLowerCase().includes('delivered')) return null;
-        
-        // Use the eta from CSV if available
-        if (latest.eta) {
-          return new Date(latest.eta);
-        }
-        
-        // Default to tomorrow
-        const eta = new Date();
-        eta.setDate(eta.getDate() + 1);
-        return eta;
-      }
-
-      // ----- RENDER LEFT PANEL WITH MAP -----
-      async function renderLeftPanel(trackingNumber, latest, etaDate, isDelivered) {
-        const isOutForDelivery = latest.status.toLowerCase().includes('out for delivery');
-        
-        // Get coordinates for the location from CSV
-        let coords = null;
-        if (latest.location) {
-          coords = await geocodeLocation(latest.location);
-        }
-        
-        // ETA HTML
+      // ----- render left panel with map container -----
+      function renderLeftPanel(trackingNumber, latest, etaDate, isDelivered, coords) {
         let etaHtml = '';
         if (etaDate && !isDelivered) {
           const weekday = etaDate.toLocaleDateString('en-US', { weekday: 'long' });
@@ -642,14 +634,15 @@
           etaHtml = `<div class="eta-box"><span class="status-value delivered">✓ Delivered</span></div>`;
         }
 
-        // Map container
+        // driver location string
+        const locDisplay = latest.location || 'unknown';
+
+        // map container
         const mapHtml = `
           <div class="map-container" id="mapContainer">
             <div id="liveMap"></div>
           </div>
-          <div class="map-note">
-            📍 Exact location from courier: <strong>${latest.location}</strong>
-          </div>
+          <div class="map-note">${isDelivered ? 'final delivery location' : (latest.status.toLowerCase().includes('out for delivery') ? '🚚 live driver position (simulated)' : 'location approximate')}</div>
         `;
 
         document.getElementById('leftPanel').innerHTML = `
@@ -657,86 +650,54 @@
           <p class="tracking-num">${trackingNumber}</p>
           <div class="action-btns">
             <button onclick="navigator.clipboard.writeText('${trackingNumber}')">📋 copy</button>
-            <button onclick="alert('Parcel #${trackingNumber} is being watched')">⭐ watch</button>
+            <button onclick="alert('watch this parcel')">⭐ watch</button>
           </div>
           <div class="status-badge">latest status</div>
           <div class="status-value ${isDelivered ? 'delivered' : ''}">${latest.status}</div>
           ${etaHtml}
           ${mapHtml}
           <div class="detail-grid">
-            <div><span class="label">type: </span><span class="val">${latest.barcode_type || 'EAN-13'}</span></div>
-            <div><span class="label">location: </span><span class="val"><span class="location-highlight">${latest.location}</span></span></div>
-            <div><span class="label">date: </span><span class="val">${latest.date || ''}</span></div>
-            <div><span class="label">time: </span><span class="val">${latest.time || ''}</span></div>
-            <div><span class="label">eta: </span><span class="val">${latest.eta || ''}</span></div>
+            <div><span class="label">type: </span><span class="val">${latest.barcode_type || 'N/A'}</span></div>
+            <div><span class="label">location: </span><span class="val">${locDisplay}</span></div>
           </div>
         `;
 
-        // Initialize map after element exists
+        // init map after element exists
         setTimeout(() => {
           const mapDiv = document.getElementById('liveMap');
           if (!mapDiv) return;
 
-          if (map) { 
-            map.remove(); 
-            map = null; 
-            marker = null; 
-          }
+          if (map) { map.remove(); map = null; marker = null; } // fresh map
 
           if (coords) {
-            // Create map with ZOOM LEVEL 15 for street level
-            map = L.map('liveMap').setView([coords.lat, coords.lng], 15);
-            
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            }).addTo(map);
-            
-            // Create custom icon based on status
-            let icon;
+            map = L.map('liveMap').setView([coords.lat, coords.lng], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+            marker = L.marker([coords.lat, coords.lng]).addTo(map);
             if (isDelivered) {
-              icon = L.divIcon({ 
-                html: '📍', 
-                className: 'custom-marker',
-                iconSize: [40, 40],
-                popupAnchor: [0, -20]
-              });
-            } else if (isOutForDelivery) {
-              icon = L.divIcon({ 
-                html: '🚚', 
-                className: 'custom-marker',
-                iconSize: [44, 44],
-                popupAnchor: [0, -22]
-              });
+              marker.bindPopup('✓ Delivered here').openPopup();
+            } else if (latest.status.toLowerCase().includes('out for delivery')) {
+              // special icon
+              marker.setIcon(L.divIcon({ html: '🚚', className: '', iconSize: [24,24] }));
+              marker.bindPopup('Driver en route').openPopup();
             } else {
-              icon = L.divIcon({ 
-                html: '📦', 
-                className: 'custom-marker',
-                iconSize: [40, 40],
-                popupAnchor: [0, -20]
-              });
+              marker.bindPopup('Last scan location').openPopup();
             }
-            
-            marker = L.marker([coords.lat, coords.lng], { icon: icon }).addTo(map);
-            
-            // Add popup with EXACT location from CSV
-            marker.bindPopup(`
-              <b>${latest.status}</b><br>
-              📍 ${latest.location}<br>
-              🕒 ${latest.date} ${latest.time}
-            `).openPopup();
-            
+            // start live simulation if out for delivery
+            if (latest.status.toLowerCase().includes('out for delivery') && coords) {
+              startLiveTrackingIfOutForDelivery(latest.status, coords);
+            }
           } else {
-            // Fallback to a default view if geocoding fails
+            // fallback default view
             map = L.map('liveMap').setView([39.8283, -98.5795], 4);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
-            L.marker([39.8283, -98.5795]).addTo(map).bindPopup('Location: ' + latest.location);
+            L.marker([39.8283, -98.5795]).addTo(map).bindPopup('location not precise');
           }
-        }, 100);
+        }, 50);
       }
 
-      // ----- RENDER TIMELINE -----
+      // ----- render timeline (identical to original but inside timelinePanel) -----
       function renderTimeline() {
-        const events = showFullHistory ? allScans : allScans.slice(0, 3);
+        const events = showFullHistory ? allScans : allScans.slice(0, 2);
         let html = '<h3 class="timeline-title">tracking history</h3><div>';
 
         events.forEach((ev, i) => {
@@ -751,9 +712,9 @@
           const connector = (i < events.length - 1) ? '<div class="connector"></div>' : '';
 
           let dateStr = '';
-          if (ev.date) {
-            dateStr = ev.date;
-            if (ev.time) dateStr += ' at ' + ev.time;
+          if (ev.timestamp) {
+            dateStr = ev.timestamp.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            if (ev.time && ev.time !== 'NULL' && ev.time !== '') dateStr += ' at ' + ev.time;
           }
 
           html += `
@@ -763,15 +724,15 @@
               </div>
               <div>
                 <p class="event-status ${isDelivered ? 'delivered' : ''}">${ev.status}</p>
-                ${ev.location ? `<p class="event-detail">📍 ${ev.location}</p>` : ''}
-                ${dateStr ? `<p class="event-detail">🕒 ${dateStr}</p>` : ''}
+                ${ev.location && ev.location !== 'N/A' ? `<p class="event-detail">${ev.location}</p>` : ''}
+                ${dateStr ? `<p class="event-detail">${dateStr}</p>` : ''}
               </div>
             </div>
           `;
         });
 
         html += '</div>';
-        if (allScans.length > 3) {
+        if (allScans.length > 2) {
           html += `<button class="show-history" onclick="window.toggleHistory()">${showFullHistory ? '− hide full history' : '+ show full history (' + allScans.length + ' events)'}</button>`;
         }
         document.getElementById('timelinePanel').innerHTML = html;
@@ -782,83 +743,64 @@
         renderTimeline();
       };
 
-      // ----- MAIN TRACK HANDLER -----
+      // ----- main track handler -----
       async function handleTrack() {
         const input = document.getElementById('trackInput').value.trim();
         if (!input) return;
 
+        stopLiveTracking();
         document.getElementById('loadingState').style.display = 'block';
         document.getElementById('errorState').style.display = 'none';
         document.getElementById('dashboard').style.display = 'none';
         document.getElementById('emptyState').style.display = 'none';
 
         try {
-          // Fetch CSV
-          const response = await fetch(CSV_URL);
-          if (!response.ok) throw new Error('Failed to fetch tracking data');
-          
-          const csvText = await response.text();
-          console.log("CSV Data:", csvText.substring(0, 200)); // Debug first 200 chars
-          
-          const records = parseCSV(csvText);
-          console.log("Parsed records:", records); // Debug all records
-          
-          // Filter by tracking number
-          const filtered = records.filter(r => r.label_id && r.label_id.trim() === input.trim());
-          console.log("Filtered for", input, ":", filtered); // Debug filtered
-          
+          const resp = await fetch(CSV_URL);
+          if (!resp.ok) throw new Error('network error');
+          const csv = await resp.text();
+          const records = parseCSV(csv);
+          const filtered = records.filter(r => r.label_id && r.label_id.toLowerCase() === input.toLowerCase());
+
           if (filtered.length === 0) {
-            document.getElementById('errorState').textContent = `✗ No tracking data found for "${input}"`;
+            document.getElementById('errorState').textContent = `✗ no shipment for "${input}"`;
             document.getElementById('errorState').style.display = 'block';
-            document.getElementById('loadingState').style.display = 'none';
             return;
           }
 
-          // Sort by date (most recent first)
-          allScans = filtered.sort((a, b) => {
-            if (a.date && b.date) {
-              return b.date.localeCompare(a.date);
-            }
-            return 0;
-          });
-          
+          const valid = filtered.filter(r => r.timestamp).sort((a,b) => b.timestamp - a.timestamp);
+          allScans = valid.length ? valid : filtered;
           currentTrackingNumber = input;
           showFullHistory = false;
 
+          // extract coordinates from latest scan if available
           const latest = allScans[0];
+          let coords = null;
+          if (latest.raw_location) {
+            coords = extractCoordinates(latest.raw_location);
+          }
           const eta = calculateETA(allScans);
           const isDelivered = latest.status.toLowerCase().includes('delivered');
 
-          // Show dashboard
+          // show dashboard
           document.getElementById('dashboard').style.display = 'grid';
-          
-          // Render panels
-          await renderLeftPanel(input, latest, eta, isDelivered);
+          renderLeftPanel(input, latest, eta, isDelivered, coords);
           renderTimeline();
 
-        } catch (error) {
-          console.error("Error:", error);
-          document.getElementById('errorState').textContent = 'Error: ' + error.message;
+        } catch (err) {
+          document.getElementById('errorState').textContent = err.message || 'failed to load';
           document.getElementById('errorState').style.display = 'block';
         } finally {
           document.getElementById('loadingState').style.display = 'none';
         }
       }
 
-      // Event listeners
+      // event listeners
       document.getElementById('trackBtn').addEventListener('click', handleTrack);
       document.getElementById('trackInput').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') handleTrack();
       });
 
-      // Auto-load on page load
-      window.addEventListener('load', () => {
-        setTimeout(() => {
-          handleTrack();
-        }, 500);
-      });
-
-      // Initial empty state
+      // initial empty state
       document.getElementById('emptyState').style.display = 'block';
     })();
   </script>
