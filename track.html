@@ -454,15 +454,163 @@
 <script>
   (function() {
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRcCfqR0Yn3zjCBHYPT0gcPNcJjQ8QwgqsIyTbySG99R3l8VPsjotxwhasGL1yh6lLToq3G0p6AOZZR/pub?gid=0&single=true&output=csv";
+    
+    // For real-time tracking - you need a WebSocket server
+    const WS_URL = "wss://your-tracking-server.com/ws"; // REPLACE WITH YOUR ACTUAL WEBSOCKET SERVER
+    
+    // Global variables
+    let allScans = [];
+    let showFullHistory = false;
+    let map = null;
+    let marker = null;
+    let watchInterval = null;
+    let currentTrackingNumber = '';
+    let socket = null;
+    let realtimeCoords = null;
+    let pathLine = null;
+    let pathPoints = [];
 
-    // ETA offset rules (days after first scan)
-    const ETA_RULES = {
-      "Item Booked": 5, "Item Bagged": 4, "Item Dispatched": 3,
-      "Item Received": 3, "In-Transit": 2, "Item Received at Delivery Office": 1,
-      "Out for delivery": 0, "Delivered": 0
-    };
+    // ----- WebSocket connection for real-time GPS -----
+    function connectWebSocket(trackingNumber) {
+      if (!window.WebSocket) {
+        console.log("WebSocket not supported");
+        return;
+      }
 
-    // ----- helper functions (parsing, coords, location) -----
+      // Close existing connection
+      if (socket) {
+        socket.close();
+      }
+
+      // Connect to your tracking server
+      // You need a REAL WebSocket server that receives GPS data from courier devices
+      socket = new WebSocket(WS_URL);
+      
+      socket.onopen = function() {
+        console.log("Connected to tracking server");
+        // Subscribe to this specific tracking number
+        socket.send(JSON.stringify({
+          type: "subscribe",
+          trackingNumber: trackingNumber
+        }));
+      };
+      
+      socket.onmessage = function(event) {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("Real-time GPS update:", data);
+          
+          if (data.type === "location" && data.trackingNumber === trackingNumber) {
+            // Update real-time position
+            realtimeCoords = {
+              lat: data.lat,
+              lng: data.lng
+            };
+            
+            // Update map with real position
+            updateRealtimePosition(realtimeCoords, data.speed, data.heading);
+          }
+        } catch (e) {
+          console.error("Error parsing WebSocket message:", e);
+        }
+      };
+      
+      socket.onerror = function(error) {
+        console.error("WebSocket error:", error);
+        // Fall back to simulated movement if real tracking fails
+        startSimulatedTracking();
+      };
+      
+      socket.onclose = function() {
+        console.log("Disconnected from tracking server");
+      };
+    }
+    
+    // ----- Update map with REAL GPS position -----
+    function updateRealtimePosition(coords, speed, heading) {
+      if (!map || !marker) return;
+      
+      // Update marker position
+      marker.setLatLng([coords.lat, coords.lng]);
+      
+      // Update path (breadcrumb trail)
+      pathPoints.push([coords.lat, coords.lng]);
+      if (pathPoints.length > 50) pathPoints.shift(); // Keep last 50 points
+      
+      if (pathLine) {
+        pathLine.setLatLngs(pathPoints);
+      } else {
+        pathLine = L.polyline(pathPoints, { color: 'blue', weight: 3 }).addTo(map);
+      }
+      
+      // Update marker icon based on speed/movement
+      const speedKph = speed || 0;
+      let icon = L.divIcon({
+        className: 'custom-marker',
+        html: speedKph > 0 ? '🚚 💨' : '🚚',
+        iconSize: [30, 30],
+        popupAnchor: [0, -15]
+      });
+      marker.setIcon(icon);
+      
+      // Update popup with live info
+      marker.bindPopup(`
+        <b>Live Tracking</b><br>
+        Speed: ${speedKph} km/h<br>
+        Last update: ${new Date().toLocaleTimeString()}<br>
+        Tracking #: ${currentTrackingNumber}
+      `).openPopup();
+      
+      // Center map on vehicle if moving
+      if (speedKph > 0) {
+        map.panTo([coords.lat, coords.lng]);
+      }
+    }
+    
+    // ----- Fallback simulation (remove this in production) -----
+    function startSimulatedTracking(initialCoords) {
+      if (!initialCoords) return;
+      
+      let step = 0;
+      const path = [
+        [initialCoords.lat, initialCoords.lng],
+        [initialCoords.lat + 0.001, initialCoords.lng - 0.0005],
+        [initialCoords.lat + 0.002, initialCoords.lng - 0.0012],
+        [initialCoords.lat + 0.0025, initialCoords.lng - 0.002],
+        [initialCoords.lat + 0.003, initialCoords.lng - 0.0028],
+      ];
+      
+      if (watchInterval) clearInterval(watchInterval);
+      
+      watchInterval = setInterval(() => {
+        step = (step + 1) % path.length;
+        const pos = path[step];
+        if (marker) {
+          marker.setLatLng(pos);
+          map.panTo(pos);
+          
+          // Update path
+          pathPoints.push(pos);
+          if (pathPoints.length > 50) pathPoints.shift();
+          if (pathLine) {
+            pathLine.setLatLngs(pathPoints);
+          }
+        }
+      }, 3500);
+    }
+
+    function stopLiveTracking() {
+      if (watchInterval) {
+        clearInterval(watchInterval);
+        watchInterval = null;
+      }
+      if (socket) {
+        socket.close();
+        socket = null;
+      }
+    }
+
+    // ----- extract coordinates from CSV data -----
     function extractCoordinates(locStr) {
       if (!locStr) return null;
       const str = locStr.trim();
@@ -473,60 +621,7 @@
       return null;
     }
 
-    // FIXED: Better date parsing
-    function createTimestamp(dateStr, timeStr) {
-      if (!dateStr || dateStr === "NULL" || dateStr === "") return null;
-      
-      console.log("Raw date:", dateStr, "Raw time:", timeStr);
-      
-      // Try multiple date formats
-      let timestamp = null;
-      
-      // Format: "6-Mar-2025" or similar
-      const parts = dateStr.split(/[-\/]/);
-      if (parts.length === 3) {
-        // Try to parse as DD-MMM-YYYY
-        const day = parseInt(parts[0]);
-        const month = parts[1];
-        const year = parseInt(parts[2]);
-        
-        const monthMap = {
-          'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
-          'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
-        };
-        
-        if (monthMap[month.toLowerCase().substring(0,3)] !== undefined) {
-          timestamp = new Date(year, monthMap[month.toLowerCase().substring(0,3)], day);
-        }
-      }
-      
-      // If that fails, try standard Date parsing
-      if (!timestamp || isNaN(timestamp)) {
-        timestamp = new Date(dateStr);
-      }
-      
-      // Add time if available
-      if (timestamp && !isNaN(timestamp) && timeStr && timeStr !== "NULL" && timeStr !== "") {
-        const timeParts = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
-        if (timeParts) {
-          let hours = parseInt(timeParts[1]);
-          const minutes = parseInt(timeParts[2]);
-          const ampm = timeParts[3];
-          
-          if (ampm) {
-            if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
-            if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
-          }
-          
-          timestamp.setHours(hours, minutes, 0);
-        }
-      }
-      
-      console.log("Parsed timestamp:", timestamp);
-      return (!timestamp || isNaN(timestamp)) ? null : timestamp;
-    }
-
-    // Improved CSV parser
+    // ----- CSV parsing (same as before) -----
     function parseCSVLine(line) {
       const result = [];
       let current = '';
@@ -534,7 +629,6 @@
       
       for (let i = 0; i < line.length; i++) {
         const char = line[i];
-        
         if (char === '"') {
           inQuotes = !inQuotes;
         } else if (char === ',' && !inQuotes) {
@@ -544,18 +638,47 @@
           current += char;
         }
       }
-      
       result.push(current);
       return result.map(field => field.trim().replace(/^"|"$/g, ''));
     }
 
+    function createTimestamp(dateStr, timeStr) {
+      if (!dateStr || dateStr === "NULL") return null;
+      
+      // Handle "6-Mar-2025" format
+      const parts = dateStr.split(/[-\/]/);
+      if (parts.length === 3) {
+        const day = parseInt(parts[0]);
+        const month = parts[1];
+        const year = parseInt(parts[2]);
+        
+        const monthMap = {
+          'jan':0,'feb':1,'mar':2,'apr':3,'may':4,'jun':5,
+          'jul':6,'aug':7,'sep':8,'oct':9,'nov':10,'dec':11
+        };
+        
+        if (monthMap[month.toLowerCase().substring(0,3)] !== undefined) {
+          let ts = new Date(year, monthMap[month.toLowerCase().substring(0,3)], day);
+          
+          if (timeStr && timeStr !== "NULL") {
+            const timeParts = timeStr.match(/(\d+):(\d+)/);
+            if (timeParts) {
+              ts.setHours(parseInt(timeParts[1]), parseInt(timeParts[2]), 0);
+            }
+          }
+          return ts;
+        }
+      }
+      
+      let ts = new Date(dateStr);
+      return isNaN(ts) ? null : ts;
+    }
+
     function parseCSV(csvText) {
-      const lines = csvText.split('\n').filter(l => l.trim() !== '');
+      const lines = csvText.split('\n').filter(l => l.trim());
       if (!lines.length) return [];
       
-      const headerLine = lines[0];
-      const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
-      
+      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
       const records = [];
       
       for (let i = 1; i < lines.length; i++) {
@@ -564,7 +687,6 @@
         
         headers.forEach((h, idx) => {
           const val = values[idx] || '';
-          
           if (h.includes('label') || h.includes('id') || h === 'tracking') {
             rec.label_id = val;
           } else if (h.includes('barcode')) {
@@ -577,7 +699,6 @@
             rec.time = val;
           } else if (h.includes('location')) {
             rec.raw_location = val;
-            // Don't convert coordinates here, keep raw for map
             rec.location = val;
           }
         });
@@ -589,75 +710,20 @@
       return records;
     }
 
-    function calculateETA(scans) {
-      if (!scans.length) return null;
-      const sortedAsc = scans.filter(s => s.timestamp).sort((a,b) => a.timestamp - b.timestamp);
-      if (!sortedAsc.length) return null;
-      
-      const base = sortedAsc[0].timestamp;
-      const latest = scans.sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
-      const status = latest.status || '';
-      
-      if (status.toLowerCase().includes('delivered')) return null;
-      
-      let days = 0;
-      for (const [rule, d] of Object.entries(ETA_RULES)) {
-        if (status.toLowerCase().includes(rule.toLowerCase())) { 
-          days = d; 
-          break; 
-        }
-      }
-      
-      let eta = new Date(base.getTime() + days * 86400000);
-      const today = new Date(); 
-      today.setHours(0,0,0,0);
-      
-      if (eta < today) {
-        eta = days === 0 ? new Date() : new Date(today.getTime() + 86400000);
-      }
-      
-      return eta;
-    }
-
-    // Global variables
-    let allScans = [];
-    let showFullHistory = false;
-    let map = null;
-    let marker = null;
-    let currentTrackingNumber = '';
-
-    // ----- render left panel with Google Maps -----
-    function renderLeftPanel(trackingNumber, latest, etaDate, isDelivered, coords) {
+    // ----- render left panel with live tracking map -----
+    function renderLeftPanel(trackingNumber, latest, etaDate, isDelivered, initialCoords) {
       let etaHtml = '';
       if (etaDate && !isDelivered) {
-        const weekday = etaDate.toLocaleDateString('en-US', { weekday: 'long' });
-        const day = etaDate.getDate();
-        const month = etaDate.toLocaleDateString('en-US', { month: 'long' });
-        const year = etaDate.getFullYear();
         etaHtml = `
           <div class="eta-box">
             <div class="eta-label">expected delivery</div>
             <div class="eta-row">
-              <span class="eta-date">${day}</span>
-              <span class="eta-month">${month} ${year}</span>
+              <span class="eta-date">${etaDate.getDate()}</span>
+              <span class="eta-month">${etaDate.toLocaleDateString('en-US', { month: 'long' })} ${etaDate.getFullYear()}</span>
               <span class="eta-time">~9:00 PM</span>
             </div>
-            <div style="margin-top:6px;">${weekday}</div>
           </div>
         `;
-      } else if (isDelivered) {
-        etaHtml = `<div class="eta-box"><span class="status-value delivered">✓ Delivered</span></div>`;
-      }
-
-      const locDisplay = latest.location || 'Location not available';
-      
-      // Create Google Maps iframe URL
-      let mapSrc = "https://maps.google.com/maps?q=USA&z=4&output=embed";
-      if (coords) {
-        mapSrc = `https://maps.google.com/maps?q=${coords.lat},${coords.lng}&z=15&output=embed`;
-      } else if (latest.location && /[a-zA-Z]/.test(latest.location)) {
-        // If we have a text location, geocode it roughly
-        mapSrc = `https://maps.google.com/maps?q=${encodeURIComponent(latest.location)}&z=13&output=embed`;
       }
 
       document.getElementById('leftPanel').innerHTML = `
@@ -667,36 +733,81 @@
           <button onclick="navigator.clipboard.writeText('${trackingNumber}')">📋 copy</button>
           <button onclick="alert('Watch this parcel')">⭐ watch</button>
         </div>
-        <div class="status-badge">latest status</div>
-        <div class="status-value ${isDelivered ? 'delivered' : ''}">${latest.status || 'Unknown'}</div>
-        ${etaHtml}
-        <div class="map-container" style="height: 250px; width: 100%; margin: 15px 0; border-radius: 8px; overflow: hidden; border: 1px solid #ddd;">
-          <iframe
-            width="100%"
-            height="100%"
-            style="border:0"
-            loading="lazy"
-            allowfullscreen
-            referrerpolicy="no-referrer-when-downgrade"
-            src="${mapSrc}">
-          </iframe>
+        <div class="status-badge">live tracking</div>
+        <div class="status-value ${isDelivered ? 'delivered' : ''}" style="color: #2ecc71; font-weight: bold;">
+          ${latest.status || 'Unknown'} ${!isDelivered ? '🔴 LIVE' : ''}
         </div>
-        <div class="map-note">📍 ${coords ? 'Exact location from tracking data' : 'Approximate location'}</div>
+        ${etaHtml}
+        <div class="map-container" id="mapContainer" style="height: 300px; width: 100%; margin: 15px 0; border-radius: 8px; border: 2px solid #2ecc71;"></div>
+        <div class="map-note" id="liveStatus">
+          🚚 ${initialCoords ? 'Waiting for GPS signal...' : 'No GPS data available'}
+        </div>
         <div class="detail-grid">
-          <div><span class="label">type: </span><span class="val">${latest.barcode_type || 'N/A'}</span></div>
-          <div><span class="label">location: </span><span class="val">${locDisplay}</span></div>
+          <div><span class="label">last scan: </span><span class="val">${latest.location || 'N/A'}</span></div>
+          <div><span class="label">last update: </span><span class="val" id="lastUpdateTime">${new Date().toLocaleTimeString()}</span></div>
         </div>
       `;
+
+      // Initialize Leaflet map
+      setTimeout(() => {
+        if (map) {
+          map.remove();
+        }
+
+        const mapDiv = document.getElementById('mapContainer');
+        if (!mapDiv) return;
+
+        // Default view
+        const defaultView = initialCoords ? [initialCoords.lat, initialCoords.lng] : [39.8283, -98.5795];
+        map = L.map('mapContainer').setView(defaultView, initialCoords ? 15 : 4);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        // Create vehicle marker
+        const vehicleIcon = L.divIcon({
+          className: 'vehicle-marker',
+          html: '🚚',
+          iconSize: [32, 32],
+          popupAnchor: [0, -16]
+        });
+
+        marker = L.marker(defaultView, {
+          icon: vehicleIcon,
+          zIndexOffset: 1000
+        }).addTo(map);
+
+        marker.bindPopup(`
+          <b>Courier Vehicle</b><br>
+          Tracking: ${trackingNumber}<br>
+          Status: ${latest.status}
+        `).openPopup();
+
+        // Add initial path point
+        pathPoints = [defaultView];
+        pathLine = L.polyline(pathPoints, { color: '#2ecc71', weight: 4, opacity: 0.7 }).addTo(map);
+
+        // Connect to REAL tracking server
+        if (!isDelivered && initialCoords) {
+          document.getElementById('liveStatus').innerHTML = '🟢 Connecting to live GPS...';
+          connectWebSocket(trackingNumber);
+          
+          // Start with initial position
+          realtimeCoords = initialCoords;
+          updateRealtimePosition(initialCoords, 0, 0);
+        }
+      }, 100);
     }
 
-    // ----- render timeline with proper dates -----
+    // ----- render timeline -----
     function renderTimeline() {
-      if (!allScans || allScans.length === 0) {
-        document.getElementById('timelinePanel').innerHTML = '<p>No tracking history available</p>';
+      if (!allScans || !allScans.length) {
+        document.getElementById('timelinePanel').innerHTML = '<p>No tracking history</p>';
         return;
       }
       
-      const events = showFullHistory ? allScans : allScans.slice(0, 5); // Show more by default
+      const events = showFullHistory ? allScans : allScans.slice(0, 5);
       let html = '<h3 class="timeline-title">tracking history</h3><div class="timeline">';
 
       events.forEach((ev, i) => {
@@ -710,33 +821,19 @@
 
         const connector = (i < events.length - 1) ? '<div class="connector"></div>' : '';
 
-        // FIXED: Better date formatting
-        let dateStr = 'Date not available';
+        let dateStr = 'Date N/A';
         if (ev.timestamp) {
-          dateStr = ev.timestamp.toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric', 
-            year: 'numeric' 
+          dateStr = ev.timestamp.toLocaleString('en-US', { 
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
           });
-          if (ev.time && ev.time !== 'NULL' && ev.time !== '') {
-            dateStr += ' at ' + ev.time;
-          }
-        } else if (ev.date) {
-          // Show raw date if timestamp parsing failed
-          dateStr = ev.date;
-          if (ev.time && ev.time !== 'NULL' && ev.time !== '') {
-            dateStr += ' ' + ev.time;
-          }
         }
 
         html += `
           <div class="timeline-row">
-            <div class="timeline-col">
-              <div class="${dotClass}"></div>${connector}
-            </div>
+            <div class="timeline-col"><div class="${dotClass}"></div>${connector}</div>
             <div>
-              <p class="event-status ${isDelivered ? 'delivered' : ''}">${ev.status || 'Unknown status'}</p>
-              ${ev.location && ev.location !== 'N/A' && ev.location !== 'NULL' ? `<p class="event-detail">📍 ${ev.location}</p>` : ''}
+              <p class="event-status">${ev.status || 'Unknown'}</p>
+              ${ev.location ? `<p class="event-detail">📍 ${ev.location}</p>` : ''}
               <p class="event-detail">📅 ${dateStr}</p>
             </div>
           </div>
@@ -744,9 +841,8 @@
       });
 
       html += '</div>';
-      
       if (allScans.length > 5) {
-        html += `<button class="show-history" onclick="window.toggleHistory()">${showFullHistory ? '− hide full history' : '+ show full history (' + allScans.length + ' events)'}</button>`;
+        html += `<button onclick="window.toggleHistory()">${showFullHistory ? '− hide' : '+ show all (${allScans.length})'}</button>`;
       }
       
       document.getElementById('timelinePanel').innerHTML = html;
@@ -762,68 +858,42 @@
       const input = document.getElementById('trackInput').value.trim();
       if (!input) return;
 
-      // Show loading state
+      stopLiveTracking();
+      
       document.getElementById('loadingState').style.display = 'block';
       document.getElementById('errorState').style.display = 'none';
       document.getElementById('dashboard').style.display = 'none';
-      document.getElementById('emptyState').style.display = 'none';
 
       try {
-        console.log('Fetching CSV...');
         const resp = await fetch(CSV_URL);
-        if (!resp.ok) throw new Error('Network error');
-        
         const csv = await resp.text();
-        console.log('CSV loaded, first 200 chars:', csv.substring(0, 200));
-        
         const records = parseCSV(csv);
-        console.log('All records:', records);
         
-        // Case-insensitive search
-        const searchTerm = input.toLowerCase().trim();
         const filtered = records.filter(r => 
-          r.label_id && r.label_id.toLowerCase().trim() === searchTerm
+          r.label_id && r.label_id.toLowerCase().trim() === input.toLowerCase().trim()
         );
 
-        console.log('Filtered records for', input, ':', filtered);
-
-        if (filtered.length === 0) {
-          document.getElementById('errorState').textContent = `✗ No shipment found for "${input}"`;
+        if (!filtered.length) {
+          document.getElementById('errorState').textContent = `✗ No shipment for "${input}"`;
           document.getElementById('errorState').style.display = 'block';
-          document.getElementById('loadingState').style.display = 'none';
           return;
         }
 
-        // Sort by timestamp (most recent first)
-        const valid = filtered
-          .filter(r => r.timestamp)
-          .sort((a, b) => b.timestamp - a.timestamp);
-        
-        allScans = valid.length ? valid : filtered;
+        allScans = filtered.sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
         currentTrackingNumber = input;
         showFullHistory = false;
 
-        // Get latest scan
         const latest = allScans[0];
-        
-        // Extract coordinates if available
-        let coords = null;
-        if (latest.raw_location) {
-          coords = extractCoordinates(latest.raw_location);
-          console.log('Coordinates from data:', coords);
-        }
-        
+        const initialCoords = extractCoordinates(latest.raw_location);
         const eta = calculateETA(allScans);
-        const isDelivered = latest.status ? latest.status.toLowerCase().includes('delivered') : false;
+        const isDelivered = latest.status.toLowerCase().includes('delivered');
 
-        // Show dashboard
         document.getElementById('dashboard').style.display = 'grid';
-        renderLeftPanel(input, latest, eta, isDelivered, coords);
+        renderLeftPanel(input, latest, eta, isDelivered, initialCoords);
         renderTimeline();
 
       } catch (err) {
-        console.error('Error:', err);
-        document.getElementById('errorState').textContent = err.message || 'Failed to load tracking data';
+        document.getElementById('errorState').textContent = err.message;
         document.getElementById('errorState').style.display = 'block';
       } finally {
         document.getElementById('loadingState').style.display = 'none';
@@ -832,22 +902,12 @@
 
     // Event listeners
     document.addEventListener('DOMContentLoaded', function() {
-      const trackBtn = document.getElementById('trackBtn');
-      const trackInput = document.getElementById('trackInput');
-      
-      if (trackBtn) {
-        trackBtn.addEventListener('click', handleTrack);
-      }
-      
-      if (trackInput) {
-        trackInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') handleTrack();
-        });
-      }
-      
-      // Initial empty state
-      document.getElementById('emptyState').style.display = 'block';
+      document.getElementById('trackBtn').addEventListener('click', handleTrack);
+      document.getElementById('trackInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleTrack();
+      });
     });
+
   })();
 </script>
 </body>
