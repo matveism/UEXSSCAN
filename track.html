@@ -451,358 +451,471 @@
     </div>
   </main>
 
-  <script>
-    (function() {
-      const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRcCfqR0Yn3zjCBHYPT0gcPNcJjQ8QwgqsIyTbySG99R3l8VPsjotxwhasGL1yh6lLToq3G0p6AOZZR/pub?gid=0&single=true&output=csv";
+<script>
+  (function() {
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRcCfqR0Yn3zjCBHYPT0gcPNcJjQ8QwgqsIyTbySG99R3l8VPsjotxwhasGL1yh6lLToq3G0p6AOZZR/pub?gid=0&single=true&output=csv";
 
-      // ETA offset rules (days after first scan)
-      const ETA_RULES = {
-        "Item Booked": 5, "Item Bagged": 4, "Item Dispatched": 3,
-        "Item Received": 3, "In-Transit": 2, "Item Received at Delivery Office": 1,
-        "Out for delivery": 0, "Delivered": 0
-      };
+    // ETA offset rules (days after first scan)
+    const ETA_RULES = {
+      "Item Booked": 5, "Item Bagged": 4, "Item Dispatched": 3,
+      "Item Received": 3, "In-Transit": 2, "Item Received at Delivery Office": 1,
+      "Out for delivery": 0, "Delivered": 0
+    };
 
-      // location reverse lookup (dummy city db)
-      const CITY_DATABASE = {
-        "40.7128,-74.0060": "New York, NY 10001",
-        "34.0522,-118.2437": "Los Angeles, CA 90001",
-        "41.8781,-87.6298": "Chicago, IL 60601",
-        "29.7604,-95.3698": "Houston, TX 77001",
-        "39.9526,-75.1652": "Philadelphia, PA 19101",
-        "37.7749,-122.4194": "San Francisco, CA 94101",
-        "47.6062,-122.3321": "Seattle, WA 98101",
-        "44.9907,-93.2753": "Minneapolis, MN 55408"
-      };
+    // location reverse lookup (dummy city db)
+    const CITY_DATABASE = {
+      "40.7128,-74.0060": "New York, NY 10001",
+      "34.0522,-118.2437": "Los Angeles, CA 90001",
+      "41.8781,-87.6298": "Chicago, IL 60601",
+      "29.7604,-95.3698": "Houston, TX 77001",
+      "39.9526,-75.1652": "Philadelphia, PA 19101",
+      "37.7749,-122.4194": "San Francisco, CA 94101",
+      "47.6062,-122.3321": "Seattle, WA 98101",
+      "44.9907,-93.2753": "Minneapolis, MN 55408"
+    };
 
-      // ----- helper functions (parsing, coords, location) -----
-      function extractCoordinates(locStr) {
-        if (!locStr) return null;
-        const str = locStr.trim();
-        let m = str.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
-        if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
-        m = str.match(/^(-?\d+\.?\d*)\s+(-?\d+\.?\d*)$/);
-        if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
-        return null;
-      }
+    // ----- helper functions (parsing, coords, location) -----
+    function extractCoordinates(locStr) {
+      if (!locStr) return null;
+      const str = locStr.trim();
+      let m = str.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+      m = str.match(/^(-?\d+\.?\d*)\s+(-?\d+\.?\d*)$/);
+      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+      return null;
+    }
 
-      function convertToLocation(locationStr) {
-        if (!locationStr) return null;
-        if (/[a-zA-Z]/.test(locationStr)) return locationStr;
-        const coords = extractCoordinates(locationStr);
-        if (!coords) return locationStr;
-        const lat = coords.lat.toFixed(4), lng = coords.lng.toFixed(4);
-        const key = `${lat},${lng}`;
-        if (CITY_DATABASE[key]) return CITY_DATABASE[key];
-        // fuzzy
-        for (const [k, v] of Object.entries(CITY_DATABASE)) {
-          const [dbLat, dbLng] = k.split(',').map(Number);
-          if (Math.hypot(dbLat - coords.lat, dbLng - coords.lng) < 0.5) return v;
+    function convertToLocation(locationStr) {
+      if (!locationStr) return null;
+      // If it contains letters, it's already a text location
+      if (/[a-zA-Z]/.test(locationStr)) return locationStr;
+      
+      const coords = extractCoordinates(locationStr);
+      if (!coords) return locationStr;
+      
+      const lat = coords.lat.toFixed(4), lng = coords.lng.toFixed(4);
+      const key = `${lat},${lng}`;
+      
+      if (CITY_DATABASE[key]) return CITY_DATABASE[key];
+      
+      // fuzzy match
+      for (const [k, v] of Object.entries(CITY_DATABASE)) {
+        const [dbLat, dbLng] = k.split(',').map(Number);
+        if (Math.abs(dbLat - coords.lat) < 0.5 && Math.abs(dbLng - coords.lng) < 0.5) {
+          return v;
         }
-        return `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
       }
+      
+      return `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+    }
 
-      function createTimestamp(dateStr, timeStr) {
-        if (!dateStr) return null;
-        const clean = dateStr.replace(/(\d+)(st|nd|rd|th)/g, '$1');
-        let dt = clean;
-        if (timeStr && timeStr !== "NULL" && timeStr !== "") dt += ' ' + timeStr;
-        const ts = new Date(dt);
-        return isNaN(ts) ? null : ts;
+    function createTimestamp(dateStr, timeStr) {
+      if (!dateStr) return null;
+      
+      // Remove ordinal suffixes (st, nd, rd, th)
+      const clean = dateStr.replace(/(\d+)(st|nd|rd|th)/g, '$1');
+      let dateTimeStr = clean;
+      
+      if (timeStr && timeStr !== "NULL" && timeStr !== "") {
+        dateTimeStr += ' ' + timeStr;
       }
+      
+      const ts = new Date(dateTimeStr);
+      return isNaN(ts) ? null : ts;
+    }
 
-      function parseCSV(csvText) {
-        const lines = csvText.split('\n').filter(l => l.trim() !== '');
-        if (!lines.length) return [];
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, '').toLowerCase());
-        return lines.slice(1).map(line => {
-          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-          const rec = {};
-          headers.forEach((h, idx) => {
-            const val = values[idx] || '';
-            if (h === 'label_id') rec.label_id = val;
-            else if (h === 'barcode_type') rec.barcode_type = val;
-            else if (h === 'status') rec.status = val;
-            else if (h === 'date') rec.date = val;
-            else if (h === 'time') rec.time = val;
-            else if (h === 'location') {
-              rec.raw_location = val;
-              rec.location = convertToLocation(val);
-            }
-            else if (h === 'eta') rec.eta = val;
-          });
-          rec.timestamp = createTimestamp(rec.date, rec.time);
-          return rec;
-        });
-      }
-
-      function calculateETA(scans) {
-        if (!scans.length) return null;
-        const sortedAsc = scans.filter(s => s.timestamp).sort((a,b) => a.timestamp - b.timestamp);
-        if (!sortedAsc.length) return null;
-        const base = sortedAsc[0].timestamp;
-        const sortedDesc = [...scans].filter(s => s.timestamp).sort((a,b) => b.timestamp - a.timestamp);
-        const latest = sortedDesc[0] || scans[0];
-        const status = latest.status || '';
-        if (status.toLowerCase().includes('delivered')) return null;
-        let days = 0;
-        for (const [rule, d] of Object.entries(ETA_RULES)) {
-          if (status.toLowerCase().includes(rule.toLowerCase())) { days = d; break; }
-        }
-        let eta = new Date(base.getTime() + days * 86400000);
-        const today = new Date(); today.setHours(0,0,0,0);
-        if (eta < today) {
-          eta = days === 0 ? new Date() : new Date(today.getTime() + 86400000);
-        }
-        return eta;
-      }
-
-      // Global variables
-      let allScans = [];
-      let showFullHistory = false;
-      let map = null;
-      let marker = null;
-      let watchInterval = null;
-      let currentTrackingNumber = '';
-
-      // ----- real‑time simulation (moving dot when out for delivery) -----
-      function startLiveTrackingIfOutForDelivery(status, initialCoords) {
-        stopLiveTracking(); // clear any previous interval
-        if (!status.toLowerCase().includes('out for delivery')) return;
-
-        if (!initialCoords) return;
-        // create or update map and marker
-        if (!map) {
-          // map container should exist
-          const mapDiv = document.getElementById('liveMap');
-          if (!mapDiv) return;
-          map = L.map('liveMap').setView([initialCoords.lat, initialCoords.lng], 15);
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap'
-          }).addTo(map);
-          marker = L.marker([initialCoords.lat, initialCoords.lng], {
-            icon: L.divIcon({ className: 'custom-marker', html: '🚚', iconSize: [24,24] })
-          }).addTo(map);
+    // Improved CSV parser that handles quoted fields and commas within fields
+    function parseCSVLine(line) {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          result.push(current);
+          current = '';
         } else {
-          marker.setLatLng([initialCoords.lat, initialCoords.lng]);
-          map.panTo([initialCoords.lat, initialCoords.lng]);
-        }
-
-        // simulate movement along a small path (realistic)
-        let step = 0;
-        const path = [
-          [initialCoords.lat, initialCoords.lng],
-          [initialCoords.lat + 0.001, initialCoords.lng - 0.0005],
-          [initialCoords.lat + 0.002, initialCoords.lng - 0.0012],
-          [initialCoords.lat + 0.0025, initialCoords.lng - 0.002],
-          [initialCoords.lat + 0.003, initialCoords.lng - 0.0028],
-        ];
-        watchInterval = setInterval(() => {
-          step = (step + 1) % path.length;
-          const pos = path[step];
-          marker.setLatLng(pos);
-          map.panTo(pos);
-        }, 3500);
-      }
-
-      function stopLiveTracking() {
-        if (watchInterval) {
-          clearInterval(watchInterval);
-          watchInterval = null;
+          current += char;
         }
       }
+      
+      result.push(current); // Add the last field
+      return result.map(field => field.trim());
+    }
 
-      // ----- render left panel with map container -----
-      function renderLeftPanel(trackingNumber, latest, etaDate, isDelivered, coords) {
-        let etaHtml = '';
-        if (etaDate && !isDelivered) {
-          const weekday = etaDate.toLocaleDateString('en-US', { weekday: 'long' });
-          const day = etaDate.getDate();
-          const month = etaDate.toLocaleDateString('en-US', { month: 'long' });
-          const year = etaDate.getFullYear();
-          etaHtml = `
-            <div class="eta-box">
-              <div class="eta-label">expected delivery</div>
-              <div class="eta-row">
-                <span class="eta-date">${day}</span>
-                <span class="eta-month">${month} ${year}</span>
-                <span class="eta-time">~9:00 PM</span>
-              </div>
-              <div style="margin-top:6px;">${weekday}</div>
-            </div>
-          `;
-        } else if (isDelivered) {
-          etaHtml = `<div class="eta-box"><span class="status-value delivered">✓ Delivered</span></div>`;
-        }
-
-        // driver location string
-        const locDisplay = latest.location || 'unknown';
-
-        // map container
-        const mapHtml = `
-          <div class="map-container" id="mapContainer">
-            <div id="liveMap"></div>
-          </div>
-          <div class="map-note">${isDelivered ? 'final delivery location' : (latest.status.toLowerCase().includes('out for delivery') ? '🚚 live driver position (simulated)' : 'location approximate')}</div>
-        `;
-
-        document.getElementById('leftPanel').innerHTML = `
-          <p class="tracking-label">tracking number</p>
-          <p class="tracking-num">${trackingNumber}</p>
-          <div class="action-btns">
-            <button onclick="navigator.clipboard.writeText('${trackingNumber}')">📋 copy</button>
-            <button onclick="alert('watch this parcel')">⭐ watch</button>
-          </div>
-          <div class="status-badge">latest status</div>
-          <div class="status-value ${isDelivered ? 'delivered' : ''}">${latest.status}</div>
-          ${etaHtml}
-          ${mapHtml}
-          <div class="detail-grid">
-            <div><span class="label">type: </span><span class="val">${latest.barcode_type || 'N/A'}</span></div>
-            <div><span class="label">location: </span><span class="val">${locDisplay}</span></div>
-          </div>
-        `;
-
-        // init map after element exists
-        setTimeout(() => {
-          const mapDiv = document.getElementById('liveMap');
-          if (!mapDiv) return;
-
-          if (map) { map.remove(); map = null; marker = null; } // fresh map
-
-          if (coords) {
-            map = L.map('liveMap').setView([coords.lat, coords.lng], 14);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
-            marker = L.marker([coords.lat, coords.lng]).addTo(map);
-            if (isDelivered) {
-              marker.bindPopup('✓ Delivered here').openPopup();
-            } else if (latest.status.toLowerCase().includes('out for delivery')) {
-              // special icon
-              marker.setIcon(L.divIcon({ html: '🚚', className: '', iconSize: [24,24] }));
-              marker.bindPopup('Driver en route').openPopup();
-            } else {
-              marker.bindPopup('Last scan location').openPopup();
-            }
-            // start live simulation if out for delivery
-            if (latest.status.toLowerCase().includes('out for delivery') && coords) {
-              startLiveTrackingIfOutForDelivery(latest.status, coords);
-            }
-          } else {
-            // fallback default view
-            map = L.map('liveMap').setView([39.8283, -98.5795], 4);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
-            L.marker([39.8283, -98.5795]).addTo(map).bindPopup('location not precise');
+    function parseCSV(csvText) {
+      const lines = csvText.split('\n').filter(l => l.trim() !== '');
+      if (!lines.length) return [];
+      
+      // Parse headers
+      const headerLine = lines[0];
+      const headers = parseCSVLine(headerLine).map(h => h.toLowerCase());
+      
+      const records = [];
+      
+      // Parse each data line
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        const rec = {};
+        
+        headers.forEach((h, idx) => {
+          const val = values[idx] || '';
+          
+          if (h.includes('label') || h.includes('id')) {
+            rec.label_id = val;
+          } else if (h.includes('barcode')) {
+            rec.barcode_type = val;
+          } else if (h.includes('status')) {
+            rec.status = val;
+          } else if (h.includes('date')) {
+            rec.date = val;
+          } else if (h.includes('time')) {
+            rec.time = val;
+          } else if (h.includes('location')) {
+            rec.raw_location = val;
+            rec.location = convertToLocation(val);
+          } else if (h.includes('eta')) {
+            rec.eta = val;
           }
-        }, 50);
-      }
-
-      // ----- render timeline (identical to original but inside timelinePanel) -----
-      function renderTimeline() {
-        const events = showFullHistory ? allScans : allScans.slice(0, 2);
-        let html = '<h3 class="timeline-title">tracking history</h3><div>';
-
-        events.forEach((ev, i) => {
-          const s = ev.status.toLowerCase();
-          const isDelivered = s.includes('delivered');
-          const isOFD = s.includes('out for delivery');
-
-          let dotClass = 'dot';
-          if (isDelivered) dotClass = 'dot delivered';
-          else if (isOFD) dotClass = 'dot out-for-delivery';
-
-          const connector = (i < events.length - 1) ? '<div class="connector"></div>' : '';
-
-          let dateStr = '';
-          if (ev.timestamp) {
-            dateStr = ev.timestamp.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-            if (ev.time && ev.time !== 'NULL' && ev.time !== '') dateStr += ' at ' + ev.time;
-          }
-
-          html += `
-            <div class="timeline-row">
-              <div class="timeline-col">
-                <div class="${dotClass}"></div>${connector}
-              </div>
-              <div>
-                <p class="event-status ${isDelivered ? 'delivered' : ''}">${ev.status}</p>
-                ${ev.location && ev.location !== 'N/A' ? `<p class="event-detail">${ev.location}</p>` : ''}
-                ${dateStr ? `<p class="event-detail">${dateStr}</p>` : ''}
-              </div>
-            </div>
-          `;
         });
-
-        html += '</div>';
-        if (allScans.length > 2) {
-          html += `<button class="show-history" onclick="window.toggleHistory()">${showFullHistory ? '− hide full history' : '+ show full history (' + allScans.length + ' events)'}</button>`;
-        }
-        document.getElementById('timelinePanel').innerHTML = html;
+        
+        rec.timestamp = createTimestamp(rec.date, rec.time);
+        records.push(rec);
       }
+      
+      return records;
+    }
 
-      window.toggleHistory = function() {
-        showFullHistory = !showFullHistory;
-        renderTimeline();
-      };
-
-      // ----- main track handler -----
-      async function handleTrack() {
-        const input = document.getElementById('trackInput').value.trim();
-        if (!input) return;
-
-        stopLiveTracking();
-        document.getElementById('loadingState').style.display = 'block';
-        document.getElementById('errorState').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'none';
-        document.getElementById('emptyState').style.display = 'none';
-
-        try {
-          const resp = await fetch(CSV_URL);
-          if (!resp.ok) throw new Error('network error');
-          const csv = await resp.text();
-          const records = parseCSV(csv);
-          const filtered = records.filter(r => r.label_id && r.label_id.toLowerCase() === input.toLowerCase());
-
-          if (filtered.length === 0) {
-            document.getElementById('errorState').textContent = `✗ no shipment for "${input}"`;
-            document.getElementById('errorState').style.display = 'block';
-            return;
-          }
-
-          const valid = filtered.filter(r => r.timestamp).sort((a,b) => b.timestamp - a.timestamp);
-          allScans = valid.length ? valid : filtered;
-          currentTrackingNumber = input;
-          showFullHistory = false;
-
-          // extract coordinates from latest scan if available
-          const latest = allScans[0];
-          let coords = null;
-          if (latest.raw_location) {
-            coords = extractCoordinates(latest.raw_location);
-          }
-          const eta = calculateETA(allScans);
-          const isDelivered = latest.status.toLowerCase().includes('delivered');
-
-          // show dashboard
-          document.getElementById('dashboard').style.display = 'grid';
-          renderLeftPanel(input, latest, eta, isDelivered, coords);
-          renderTimeline();
-
-        } catch (err) {
-          document.getElementById('errorState').textContent = err.message || 'failed to load';
-          document.getElementById('errorState').style.display = 'block';
-        } finally {
-          document.getElementById('loadingState').style.display = 'none';
+    function calculateETA(scans) {
+      if (!scans.length) return null;
+      const sortedAsc = scans.filter(s => s.timestamp).sort((a,b) => a.timestamp - b.timestamp);
+      if (!sortedAsc.length) return null;
+      
+      const base = sortedAsc[0].timestamp;
+      const sortedDesc = [...scans].filter(s => s.timestamp).sort((a,b) => b.timestamp - a.timestamp);
+      const latest = sortedDesc[0] || scans[0];
+      const status = latest.status || '';
+      
+      if (status.toLowerCase().includes('delivered')) return null;
+      
+      let days = 0;
+      for (const [rule, d] of Object.entries(ETA_RULES)) {
+        if (status.toLowerCase().includes(rule.toLowerCase())) { 
+          days = d; 
+          break; 
         }
       }
+      
+      let eta = new Date(base.getTime() + days * 86400000);
+      const today = new Date(); 
+      today.setHours(0,0,0,0);
+      
+      if (eta < today) {
+        eta = days === 0 ? new Date() : new Date(today.getTime() + 86400000);
+      }
+      
+      return eta;
+    }
 
-      // event listeners
-      document.getElementById('trackBtn').addEventListener('click', handleTrack);
-      document.getElementById('trackInput').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') handleTrack();
+    // Global variables
+    let allScans = [];
+    let showFullHistory = false;
+    let map = null;
+    let marker = null;
+    let watchInterval = null;
+    let currentTrackingNumber = '';
+
+    // ----- real‑time simulation (moving dot when out for delivery) -----
+    function startLiveTrackingIfOutForDelivery(status, initialCoords) {
+      stopLiveTracking();
+      if (!status || !status.toLowerCase().includes('out for delivery')) return;
+      if (!initialCoords) return;
+
+      if (!map) {
+        const mapDiv = document.getElementById('liveMap');
+        if (!mapDiv) return;
+        
+        map = L.map('liveMap').setView([initialCoords.lat, initialCoords.lng], 15);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+        
+        marker = L.marker([initialCoords.lat, initialCoords.lng], {
+          icon: L.divIcon({ className: 'custom-marker', html: '🚚', iconSize: [24,24] })
+        }).addTo(map);
+      } else {
+        marker.setLatLng([initialCoords.lat, initialCoords.lng]);
+        map.panTo([initialCoords.lat, initialCoords.lng]);
+      }
+
+      // Simulate movement
+      let step = 0;
+      const path = [
+        [initialCoords.lat, initialCoords.lng],
+        [initialCoords.lat + 0.001, initialCoords.lng - 0.0005],
+        [initialCoords.lat + 0.002, initialCoords.lng - 0.0012],
+        [initialCoords.lat + 0.0025, initialCoords.lng - 0.002],
+        [initialCoords.lat + 0.003, initialCoords.lng - 0.0028],
+      ];
+      
+      watchInterval = setInterval(() => {
+        step = (step + 1) % path.length;
+        const pos = path[step];
+        marker.setLatLng(pos);
+        map.panTo(pos);
+      }, 3500);
+    }
+
+    function stopLiveTracking() {
+      if (watchInterval) {
+        clearInterval(watchInterval);
+        watchInterval = null;
+      }
+    }
+
+    // ----- render left panel with map container -----
+    function renderLeftPanel(trackingNumber, latest, etaDate, isDelivered, coords) {
+      let etaHtml = '';
+      if (etaDate && !isDelivered) {
+        const weekday = etaDate.toLocaleDateString('en-US', { weekday: 'long' });
+        const day = etaDate.getDate();
+        const month = etaDate.toLocaleDateString('en-US', { month: 'long' });
+        const year = etaDate.getFullYear();
+        etaHtml = `
+          <div class="eta-box">
+            <div class="eta-label">expected delivery</div>
+            <div class="eta-row">
+              <span class="eta-date">${day}</span>
+              <span class="eta-month">${month} ${year}</span>
+              <span class="eta-time">~9:00 PM</span>
+            </div>
+            <div style="margin-top:6px;">${weekday}</div>
+          </div>
+        `;
+      } else if (isDelivered) {
+        etaHtml = `<div class="eta-box"><span class="status-value delivered">✓ Delivered</span></div>`;
+      }
+
+      const locDisplay = latest.location || 'Location not available';
+      const mapStatus = isDelivered ? 'final delivery location' : 
+                       (latest.status && latest.status.toLowerCase().includes('out for delivery') ? '🚚 live driver position (simulated)' : 'location approximate');
+
+      document.getElementById('leftPanel').innerHTML = `
+        <p class="tracking-label">tracking number</p>
+        <p class="tracking-num">${trackingNumber}</p>
+        <div class="action-btns">
+          <button onclick="navigator.clipboard.writeText('${trackingNumber}')">📋 copy</button>
+          <button onclick="alert('Watch this parcel')">⭐ watch</button>
+        </div>
+        <div class="status-badge">latest status</div>
+        <div class="status-value ${isDelivered ? 'delivered' : ''}">${latest.status || 'Unknown'}</div>
+        ${etaHtml}
+        <div class="map-container" id="mapContainer">
+          <div id="liveMap" style="height: 200px; width: 100%;"></div>
+        </div>
+        <div class="map-note">${mapStatus}</div>
+        <div class="detail-grid">
+          <div><span class="label">type: </span><span class="val">${latest.barcode_type || 'N/A'}</span></div>
+          <div><span class="label">location: </span><span class="val">${locDisplay}</span></div>
+        </div>
+      `;
+
+      // Initialize map after element exists
+      setTimeout(() => {
+        const mapDiv = document.getElementById('liveMap');
+        if (!mapDiv) return;
+
+        // Clean up old map
+        if (map) { 
+          map.remove(); 
+          map = null; 
+          marker = null; 
+        }
+
+        if (coords) {
+          map = L.map('liveMap').setView([coords.lat, coords.lng], 14);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+          
+          if (isDelivered) {
+            marker = L.marker([coords.lat, coords.lng]).addTo(map);
+            marker.bindPopup('✓ Delivered here').openPopup();
+          } else if (latest.status && latest.status.toLowerCase().includes('out for delivery')) {
+            marker = L.marker([coords.lat, coords.lng], {
+              icon: L.divIcon({ html: '🚚', className: '', iconSize: [24,24] })
+            }).addTo(map);
+            marker.bindPopup('Driver en route').openPopup();
+            startLiveTrackingIfOutForDelivery(latest.status, coords);
+          } else {
+            marker = L.marker([coords.lat, coords.lng]).addTo(map);
+            marker.bindPopup('Last scan location').openPopup();
+          }
+        } else {
+          // Default US view if no coordinates
+          map = L.map('liveMap').setView([39.8283, -98.5795], 4);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+          L.marker([39.8283, -98.5795]).addTo(map).bindPopup('Precise location not available');
+        }
+      }, 100);
+    }
+
+    // ----- render timeline -----
+    function renderTimeline() {
+      if (!allScans || allScans.length === 0) {
+        document.getElementById('timelinePanel').innerHTML = '<p>No tracking history available</p>';
+        return;
+      }
+      
+      const events = showFullHistory ? allScans : allScans.slice(0, 2);
+      let html = '<h3 class="timeline-title">tracking history</h3><div class="timeline">';
+
+      events.forEach((ev, i) => {
+        const s = ev.status ? ev.status.toLowerCase() : '';
+        const isDelivered = s.includes('delivered');
+        const isOFD = s.includes('out for delivery');
+
+        let dotClass = 'dot';
+        if (isDelivered) dotClass = 'dot delivered';
+        else if (isOFD) dotClass = 'dot out-for-delivery';
+
+        const connector = (i < events.length - 1) ? '<div class="connector"></div>' : '';
+
+        let dateStr = 'Date not available';
+        if (ev.timestamp) {
+          dateStr = ev.timestamp.toLocaleDateString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric' 
+          });
+          if (ev.time && ev.time !== 'NULL' && ev.time !== '') {
+            dateStr += ' at ' + ev.time;
+          }
+        }
+
+        html += `
+          <div class="timeline-row">
+            <div class="timeline-col">
+              <div class="${dotClass}"></div>${connector}
+            </div>
+            <div>
+              <p class="event-status ${isDelivered ? 'delivered' : ''}">${ev.status || 'Unknown status'}</p>
+              ${ev.location && ev.location !== 'N/A' ? `<p class="event-detail">${ev.location}</p>` : ''}
+              <p class="event-detail">${dateStr}</p>
+            </div>
+          </div>
+        `;
       });
 
-      // initial empty state
+      html += '</div>';
+      
+      if (allScans.length > 2) {
+        html += `<button class="show-history" onclick="window.toggleHistory()">${showFullHistory ? '− hide full history' : '+ show full history (' + allScans.length + ' events)'}</button>`;
+      }
+      
+      document.getElementById('timelinePanel').innerHTML = html;
+    }
+
+    window.toggleHistory = function() {
+      showFullHistory = !showFullHistory;
+      renderTimeline();
+    };
+
+    // ----- main track handler -----
+    async function handleTrack() {
+      const input = document.getElementById('trackInput').value.trim();
+      if (!input) return;
+
+      stopLiveTracking();
+      
+      // Show loading state
+      document.getElementById('loadingState').style.display = 'block';
+      document.getElementById('errorState').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'none';
+      document.getElementById('emptyState').style.display = 'none';
+
+      try {
+        const resp = await fetch(CSV_URL);
+        if (!resp.ok) throw new Error('Network error');
+        
+        const csv = await resp.text();
+        console.log('CSV loaded, length:', csv.length);
+        
+        const records = parseCSV(csv);
+        console.log('Parsed records:', records.length);
+        
+        // Case-insensitive search with trimming
+        const searchTerm = input.toLowerCase().trim();
+        const filtered = records.filter(r => 
+          r.label_id && r.label_id.toLowerCase().trim() === searchTerm
+        );
+
+        console.log('Filtered records for', input, ':', filtered.length);
+
+        if (filtered.length === 0) {
+          document.getElementById('errorState').textContent = `✗ No shipment found for "${input}"`;
+          document.getElementById('errorState').style.display = 'block';
+          document.getElementById('loadingState').style.display = 'none';
+          return;
+        }
+
+        // Sort by timestamp (most recent first)
+        const valid = filtered
+          .filter(r => r.timestamp)
+          .sort((a, b) => b.timestamp - a.timestamp);
+        
+        allScans = valid.length ? valid : filtered;
+        currentTrackingNumber = input;
+        showFullHistory = false;
+
+        // Get latest scan
+        const latest = allScans[0];
+        
+        // Extract coordinates from raw_location if available
+        let coords = null;
+        if (latest.raw_location) {
+          coords = extractCoordinates(latest.raw_location);
+          console.log('Extracted coordinates:', coords);
+        }
+        
+        const eta = calculateETA(allScans);
+        const isDelivered = latest.status ? latest.status.toLowerCase().includes('delivered') : false;
+
+        // Show dashboard
+        document.getElementById('dashboard').style.display = 'grid';
+        renderLeftPanel(input, latest, eta, isDelivered, coords);
+        renderTimeline();
+
+      } catch (err) {
+        console.error('Error:', err);
+        document.getElementById('errorState').textContent = err.message || 'Failed to load tracking data';
+        document.getElementById('errorState').style.display = 'block';
+      } finally {
+        document.getElementById('loadingState').style.display = 'none';
+      }
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+      const trackBtn = document.getElementById('trackBtn');
+      const trackInput = document.getElementById('trackInput');
+      
+      if (trackBtn) {
+        trackBtn.addEventListener('click', handleTrack);
+      }
+      
+      if (trackInput) {
+        trackInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') handleTrack();
+        });
+      }
+      
+      // Initial empty state
       document.getElementById('emptyState').style.display = 'block';
-    })();
-  </script>
+    });
+  })();
+</script>
 </body>
 </html>
