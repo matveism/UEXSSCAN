@@ -391,7 +391,7 @@
   setInterval(updateTime, 1000);
   updateTime();
 
-  // LOCATION with reverse geocoding
+  // ========== FIXED: REAL-TIME LOCATION WITH CONTINUOUS UPDATES ==========
   var gpsDot = document.getElementById("gpsDot");
   var gpsText = document.getElementById("gpsText");
   var currentCityStateZip = "Acquiring location...";
@@ -401,6 +401,7 @@
     zip: "",
     full: "Unknown"
   };
+  var watchId = null; // To track the geolocation watcher
 
   function fetchAddressFromCoords(lat, lon) {
     fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`)
@@ -435,30 +436,64 @@
       });
   }
 
-  function getLocation() {
+  function startRealTimeLocation() {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
+      // Clear any existing watcher
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      
+      // Start watching position continuously
+      watchId = navigator.geolocation.watchPosition(
         function(position) {
           var lat = position.coords.latitude;
           var lon = position.coords.longitude;
+          var accuracy = position.coords.accuracy; // in meters
+          
+          // Update with coordinates immediately
           currentCityStateZip = lat.toFixed(4) + ", " + lon.toFixed(4);
-          gpsText.textContent = currentCityStateZip + " (resolving address...)";
+          gpsText.textContent = currentCityStateZip + " (accuracy: " + Math.round(accuracy) + "m)";
           gpsDot.className = "gps-dot active";
+          
+          // Then fetch address (but don't wait for it to update display)
           fetchAddressFromCoords(lat, lon);
         },
         function(error) {
           currentCityStateZip = "GPS unavailable";
-          gpsText.textContent = "GPS unavailable";
+          gpsText.textContent = "GPS unavailable - " + getErrorMessage(error);
           gpsDot.className = "gps-dot";
         },
-        { enableHighAccuracy: true, timeout: 10000 }
+        { 
+          enableHighAccuracy: true,      // Use GPS if available
+          timeout: 10000,                // Time to wait for a fix
+          maximumAge: 0                   // Don't use cached position
+        }
       );
     } else {
       currentCityStateZip = "Geolocation not supported";
       gpsText.textContent = "Geolocation not supported";
     }
   }
-  getLocation();
+  
+  function getErrorMessage(error) {
+    switch(error.code) {
+      case error.PERMISSION_DENIED: return "Permission denied";
+      case error.POSITION_UNAVAILABLE: return "Position unavailable";
+      case error.TIMEOUT: return "Timeout";
+      default: return "Unknown error";
+    }
+  }
+
+  // Start real-time location tracking
+  startRealTimeLocation();
+
+  // Optional: Restart location tracking when page becomes visible again
+  document.addEventListener("visibilitychange", function() {
+    if (!document.hidden) {
+      // Page is now visible, restart watcher to ensure fresh location
+      startRealTimeLocation();
+    }
+  });
 
   // GRID LOGIC
   var cells = Array.from(document.querySelectorAll(".input-cell"));
@@ -563,8 +598,8 @@
   function doEnter() { 
     var bc = getBarcode(); 
     if (bc) {
-      getLocation();
-      setTimeout(function() { sendToGoogleSheets(bc); }, 1500);
+      // No need to call getLocation() separately - location is already updating in real-time
+      sendToGoogleSheets(bc);
     } else {
       statusMsg.className = "status-message error";
       statusMsg.textContent = "No barcode entered";
