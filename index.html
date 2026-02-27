@@ -136,6 +136,7 @@
     background: #1e2e3e; 
     padding: 6px 10px; 
     border-radius: 20px;
+    min-height: 50px;
   }
   .gps-dot { 
     width: 8px; 
@@ -392,7 +393,7 @@
   setInterval(updateTime, 1000);
   updateTime();
 
-  // ========== ROBUST REAL-TIME GPS (NO DUMMY DATA, OLD BROWSER COMPATIBLE) ==========
+  // ========== FIXED: ROBUST REVERSE GEOCODING WITH MULTIPLE FALLBACKS ==========
   var gpsDot = document.getElementById("gpsDot");
   var gpsText = document.getElementById("gpsText");
   
@@ -404,55 +405,132 @@
   };
 
   var watchId = null;
-  var lastKnownCoords = null; // prevent redundant reverse geocoding
+  var lastKnownCoords = null;
 
-  // Reverse geocode with timeout (old browser compatible)
+  // PRIMARY: BigDataCloud API (free, no API key needed for limited use)
+  // FALLBACK 1: Nominatim with proper headers
+  // FALLBACK 2: Coordinates only
   function fetchAddressFromCoords(lat, lon, callback) {
-    // Use a timeout to avoid hanging if network slow
-    var timeout = setTimeout(function() {
-      callback({ city: "", state: "", zip: "", full: lat.toFixed(4) + ", " + lon.toFixed(4) + " (geocode timeout)" });
-    }, 5000);
+    var addressResolved = false;
+    var fallbackTimer = setTimeout(function() {
+      if (!addressResolved) {
+        console.log("Geocoding timeout, using coordinates");
+        callback({ 
+          city: "", 
+          state: "", 
+          zip: "", 
+          full: lat.toFixed(4) + ", " + lon.toFixed(4) + " (location only)" 
+        });
+      }
+    }, 8000);
 
+    // Try BigDataCloud first (better for old browsers, no CORS issues usually)
+    var bdcUrl = "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=en";
+    
     var xhr = new XMLHttpRequest();
-    var url = "https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lon + "&zoom=18&addressdetails=1";
-    xhr.open("GET", url, true);
-    // Set a shorter timeout for older browsers
-    xhr.timeout = 60000; // 60 seconds fallback
+    xhr.open("GET", bdcUrl, true);
+    xhr.timeout = 5000;
+    
     xhr.onload = function() {
-      clearTimeout(timeout);
-      if (xhr.status === 200) {
+      if (xhr.status === 200 && !addressResolved) {
         try {
           var data = JSON.parse(xhr.responseText);
-          if (data && data.address) {
-            var addr = data.address;
-            var city = addr.city || addr.town || addr.village || addr.hamlet || "";
-            var state = addr.state || "";
-            var zip = addr.postcode || "";
+          if (data) {
+            addressResolved = true;
+            clearTimeout(fallbackTimer);
+            
+            var city = data.city || data.locality || data.town || "";
+            var state = data.principalSubdivision || data.administrativeArea || "";
+            var zip = data.postcode || "";
+            
             var parts = [];
             if (city) parts.push(city);
             if (state) parts.push(state);
             if (zip) parts.push(zip);
-            var full = parts.join(", ") || "Area near " + lat.toFixed(4) + ", " + lon.toFixed(4);
+            var full = parts.join(", ") || lat.toFixed(4) + ", " + lon.toFixed(4);
+            
             callback({ city: city, state: state, zip: zip, full: full });
-          } else {
-            callback({ city: "", state: "", zip: "", full: lat.toFixed(4) + ", " + lon.toFixed(4) });
+            return;
           }
         } catch (e) {
-          callback({ city: "", state: "", zip: "", full: lat.toFixed(4) + ", " + lon.toFixed(4) });
+          console.log("BigDataCloud parse error, trying Nominatim");
         }
-      } else {
-        callback({ city: "", state: "", zip: "", full: lat.toFixed(4) + ", " + lon.toFixed(4) });
+      }
+      
+      // If BigDataCloud fails, try Nominatim
+      if (!addressResolved) {
+        tryNominatim(lat, lon, callback, fallbackTimer, function() { addressResolved = true; });
       }
     };
+    
     xhr.onerror = function() {
-      clearTimeout(timeout);
-      callback({ city: "", state: "", zip: "", full: lat.toFixed(4) + ", " + lon.toFixed(4) + " (network error)" });
+      console.log("BigDataCloud network error, trying Nominatim");
+      if (!addressResolved) {
+        tryNominatim(lat, lon, callback, fallbackTimer, function() { addressResolved = true; });
+      }
     };
+    
     xhr.ontimeout = function() {
-      clearTimeout(timeout);
-      callback({ city: "", state: "", zip: "", full: lat.toFixed(4) + ", " + lon.toFixed(4) + " (timeout)" });
+      console.log("BigDataCloud timeout, trying Nominatim");
+      if (!addressResolved) {
+        tryNominatim(lat, lon, callback, fallbackTimer, function() { addressResolved = true; });
+      }
     };
+    
     xhr.send();
+  }
+  
+  // Nominatim fallback with proper headers for old browsers
+  function tryNominatim(lat, lon, callback, fallbackTimer, markResolved) {
+    var nominatimUrl = "https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lon + "&zoom=18&addressdetails=1";
+    
+    var xhr2 = new XMLHttpRequest();
+    xhr2.open("GET", nominatimUrl, true);
+    xhr2.timeout = 5000;
+    
+    // Set a proper User-Agent (required by Nominatim)
+    xhr2.setRequestHeader("User-Agent", "ScanTrack-App/1.0");
+    xhr2.setRequestHeader("Accept", "application/json");
+    
+    xhr2.onload = function() {
+      if (xhr2.status === 200) {
+        try {
+          var data = JSON.parse(xhr2.responseText);
+          if (data && data.address) {
+            markResolved();
+            clearTimeout(fallbackTimer);
+            
+            var addr = data.address;
+            var city = addr.city || addr.town || addr.village || addr.hamlet || addr.county || "";
+            var state = addr.state || addr.region || "";
+            var zip = addr.postcode || "";
+            
+            var parts = [];
+            if (city) parts.push(city);
+            if (state) parts.push(state);
+            if (zip) parts.push(zip);
+            var full = parts.join(", ") || lat.toFixed(4) + ", " + lon.toFixed(4);
+            
+            callback({ city: city, state: state, zip: zip, full: full });
+            return;
+          }
+        } catch (e) {
+          console.log("Nominatim parse error");
+        }
+      }
+      
+      // If both fail, just use coordinates
+      if (!markResolved) {
+        // Will be handled by fallback timer
+      }
+    };
+    
+    xhr2.onerror = function() {
+      console.log("Nominatim network error");
+      // Fallback timer will handle
+    };
+    
+    xhr2.send();
   }
 
   // Update GPS display with current locationData
@@ -462,6 +540,10 @@
     
     if (locationData.coords.lat !== null && locationData.coords.lon !== null) {
       dotClass = "gps-dot active";
+      
+      // Always show coordinates + address if available
+      var coordStr = locationData.coords.lat.toFixed(4) + ", " + locationData.coords.lon.toFixed(4);
+      
       if (locationData.address.full && locationData.address.full.indexOf("Acquiring") === -1) {
         text = locationData.address.full;
         // Add accuracy if available
@@ -470,11 +552,13 @@
         }
       } else {
         // Fallback to coordinates if address not yet resolved
-        text = locationData.coords.lat.toFixed(4) + ", " + locationData.coords.lon.toFixed(4);
+        text = coordStr;
         if (locationData.coords.accuracy) {
           text += " (±" + Math.round(locationData.coords.accuracy) + "m)";
         }
-        text += " (resolving address...)";
+        if (locationData.address.full && locationData.address.full.indexOf("location only") > -1) {
+          text = coordStr + " (address unavailable)";
+        }
       }
     } else {
       dotClass = "gps-dot error";
@@ -495,10 +579,10 @@
     locationData.coords = { lat: lat, lon: lon, accuracy: accuracy };
     locationData.timestamp = position.timestamp;
     
-    // Check if coordinates changed significantly (more than 50m) to trigger new reverse geocode
+    // Check if coordinates changed significantly (more than 100m) to trigger new reverse geocode
     var shouldFetchAddress = true;
     if (lastKnownCoords) {
-      var R = 6371e3; // metres
+      var R = 6371e3;
       var φ1 = lastKnownCoords.lat * Math.PI/180;
       var φ2 = lat * Math.PI/180;
       var Δφ = (lat - lastKnownCoords.lat) * Math.PI/180;
@@ -507,14 +591,13 @@
               Math.cos(φ1) * Math.cos(φ2) *
               Math.sin(Δλ/2) * Math.sin(Δλ/2);
       var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      var distance = R * c; // in metres
-      if (distance < 50) shouldFetchAddress = false; // less than 50m, keep old address
+      var distance = R * c;
+      if (distance < 100) shouldFetchAddress = false;
     }
     
-    // Update last known coords
     lastKnownCoords = { lat: lat, lon: lon };
     
-    // Update display immediately with coords
+    // Update display immediately with coordinates
     updateGpsDisplay();
     
     // Fetch new address if needed
@@ -524,7 +607,6 @@
         updateGpsDisplay();
       });
     } else {
-      // Still need to update display with existing address
       updateGpsDisplay();
     }
   }
@@ -533,9 +615,9 @@
   function onLocationError(error) {
     var msg = "";
     switch(error.code) {
-      case error.PERMISSION_DENIED: msg = "Permission denied"; break;
-      case error.POSITION_UNAVAILABLE: msg = "Position unavailable"; break;
-      case error.TIMEOUT: msg = "GPS timeout"; break;
+      case error.PERMISSION_DENIED: msg = "Permission denied - enable location"; break;
+      case error.POSITION_UNAVAILABLE: msg = "Position unavailable - weak signal"; break;
+      case error.TIMEOUT: msg = "GPS timeout - try again"; break;
       default: msg = "GPS error";
     }
     locationData.coords = { lat: null, lon: null, accuracy: null };
@@ -543,21 +625,23 @@
     gpsText.textContent = "GPS: " + msg;
   }
 
-  // Start real-time location tracking (old browser compatible)
+  // Start real-time location tracking
   function startRealTimeLocation() {
     if (navigator.geolocation) {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
       }
       
-      // Options that work on older browsers (enableHighAccuracy may fail, but we include it)
       var options = {
-        enableHighAccuracy: true,      // Request GPS if available
-        timeout: 15000,                // Longer timeout for older devices
-        maximumAge: 0                   // No cached position
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
       };
       
       watchId = navigator.geolocation.watchPosition(onLocationSuccess, onLocationError, options);
+      
+      // Also try to get a quick fix with getCurrentPosition as backup
+      navigator.geolocation.getCurrentPosition(onLocationSuccess, onLocationError, options);
     } else {
       gpsDot.className = "gps-dot error";
       gpsText.textContent = "Geolocation not supported";
@@ -567,7 +651,7 @@
   // Start tracking when page loads
   startRealTimeLocation();
 
-  // Restart tracking when page becomes visible (helps on some old browsers)
+  // Restart tracking when page becomes visible
   document.addEventListener("visibilitychange", function() {
     if (!document.hidden) {
       startRealTimeLocation();
@@ -629,11 +713,13 @@
                String(now.getMinutes()).padStart(2, '0') + ":" + 
                String(now.getSeconds()).padStart(2, '0');
     
-    // Use the real-time location data (never simulated)
+    // Use the real-time location data
     var locationString = locationData.address.full;
-    if (locationData.coords.lat && locationData.coords.lon && locationString.indexOf("Acquiring") !== -1) {
-      // fallback to coordinates if address not ready
-      locationString = locationData.coords.lat.toFixed(4) + ", " + locationData.coords.lon.toFixed(4);
+    if (locationData.coords.lat && locationData.coords.lon) {
+      // If address not available, use coordinates
+      if (locationString.indexOf("Acquiring") !== -1 || locationString.indexOf("location only") !== -1) {
+        locationString = locationData.coords.lat.toFixed(4) + ", " + locationData.coords.lon.toFixed(4);
+      }
     }
     
     var formData = new FormData();
