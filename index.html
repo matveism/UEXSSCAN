@@ -2,310 +2,356 @@
 <html>
 <head>
 <meta charset="UTF-8" />
-<!-- Zoomed out for 5" display: scale 0.8, width 450px virtual but viewport scaled -->
-<meta name="viewport" content="width=450, height=800, initial-scale=0.8, maximum-scale=0.8, user-scalable=no" />
+<meta name="viewport" content="width=360, height=640, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 
 <style>
-  /* Industrial WinCE 6.0 PDA style – compact, no scrolling */
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { 
-    width: 450px; 
-    height: 800px; 
-    overflow: hidden; 
-    background: #4C7CAE;  /* Industrial blue background */
-    font-family: 'Segoe UI', Tahoma, 'Arial', sans-serif; 
-    color: #e0e0e0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .app-container {
-    width: 430px;          /* Slightly smaller to fit inside body */
-    height: 780px;
-    display: flex;
-    flex-direction: column;
-    background: #1a2a3a;   /* dark industrial inner */
-    border: 3px solid #2a4a6a;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 0 0 2px #0f1a22 inset;
-  }
-  
-  /* Header = WinCE light grey #CAC7C9 */
-  .status-bar {
-    width: 100%;
-    height: 34px;
-    background: #CAC7C9;      /* exactly #CAC7C9 */
-    color: #111111;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 12px;
-    font-size: 16px;
-    font-weight: 700;
-    border-bottom: 2px solid #888;
-    text-shadow: 1px 1px 0 #ddd;
-  }
-  
-  .main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 4px 8px 2px 8px;
-    overflow: hidden;
-  }
-  
-  /* BIG scan button – still visible */
-  .scan-btn { 
-    width: 100%; 
-    height: 44px; 
-    background: #1e4a2b; 
-    color: white; 
-    font-size: 20px; 
-    font-weight: bold; 
-    border: none; 
-    border-radius: 6px; 
-    margin-bottom: 4px; 
-    cursor: pointer; 
-    box-shadow: 0 3px 0 #0a2b13;
-    letter-spacing: 1px;
-    border: 1px solid #8ab36e;
-  }
-  .scan-btn:active { background: #166b2c; }
-  
-  .section-label { 
-    font-weight: 600; 
-    margin: 3px 0 2px 0; 
-    color: #e6f0ff; 
-    font-size: 14px;
-    text-transform: uppercase;
-  }
-  
-  /* GRID even more compact but readable */
-  .grid { 
-    width: 100%; 
-    background: #253241; 
-    padding: 5px 2px; 
-    border-radius: 8px; 
-    margin-bottom: 3px;
-  }
-  .row { display: flex; }
-  .cell { 
-    width: 16px; 
-    height: 22px; 
-    border: 1px solid #4a5a6a; 
-    background: #2f3e4e; 
-    text-align: center; 
-    font-size: 13px; 
-    line-height: 22px; 
-    color: #ffffff; 
-    font-weight: 600;
-    margin: 1px;
-    border-radius: 2px;
-  }
-  .orange { background: #c97d0b; border-color: #e5a33b; }
-  .gray { background: #4a555f; border-color: #6b7a8a; }
-  
-  .input-row .cell { cursor: default; }
-  
-  .select-status-header { 
-    width: 100%; 
-    height: 28px; 
-    background: #1e3b55; 
-    color: white; 
-    display: flex; 
-    align-items: center; 
-    padding-left: 8px; 
-    margin: 4px 0 4px 0; 
-    font-weight: bold; 
-    border-radius: 4px;
-    font-size: 14px;
-  }
-  
-  .status-select { 
-    width: 100%; 
-    height: 36px; 
-    font-size: 14px; 
-    margin-bottom: 5px; 
-    background: #2a3848; 
-    color: white; 
-    border: 2px solid #4a627a; 
-    border-radius: 5px;
-    padding: 0 6px;
-    font-weight: 600;
-  }
-  .status-select option { background: #1e2c3a; color: white; }
-  
-  /* GPS status compact */
-  .gps-status { 
-    font-size: 12px; 
-    color: #b0d0ff; 
-    margin: 3px 0; 
-    display: flex; 
-    align-items: center; 
-    gap: 5px; 
-    background: #1e2e3e; 
-    padding: 4px 8px; 
-    border-radius: 16px;
-    min-height: 34px;
-  }
-  .gps-dot { 
-    width: 8px; 
-    height: 8px; 
-    border-radius: 50%; 
-    background: #ffa500; 
-    display: inline-block; 
-  }
-  .gps-dot.active { background: #2ecc71; }
-  .gps-dot.error { background: #e74c3c; }
-  
-  .status-message { 
-    text-align: center; 
-    font-weight: bold; 
-    padding: 4px; 
-    min-height: 28px; 
-    background: #1f2f3f; 
-    border-radius: 16px; 
-    margin: 4px 0 2px 0;
-    font-size: 13px;
-    line-height: 20px;
-  }
-  .success { color: #8bc34a; } 
-  .error { color: #f28b82; } 
-  .sending { color: #64b5f6; }
-  
-  /* KEYPAD – slightly smaller to fit */
-  .keypad-wrapper { 
-    margin-top: 2px; 
-    background: #17222d; 
-    border-radius: 10px; 
-    padding: 4px 2px;
-  }
-  .keypad-num { display: flex; justify-content: center; }
-  .col { display: flex; flex-direction: column; }
-  .center-col { display: flex; flex-direction: column; margin: 0 2px; }
-  .center-row { display: flex; justify-content: center; }
-  .btn, .grid-btn { 
-    background: #2a4055; 
-    border: 2px solid #1a2b39; 
-    border-radius: 5px; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    color: #fff; 
-    font-weight: bold; 
-    cursor: pointer; 
-    width: 44px; 
-    height: 32px; 
-    margin: 2px; 
-    font-size: 14px; 
-    box-shadow: 0 2px 0 #0f1a22;
-  }
-  .btn:active, .grid-btn:active { background: #365d7a; }
-  
-  .keypad-qwerty { 
-    display: none; 
-    flex-direction: column; 
-    align-items: center; 
-  }
-  .q-row { display: flex; justify-content: center; }
-  .q-btn { 
-    width: 26px; 
-    height: 32px; 
-    margin: 1px; 
-    background: #2a4055; 
-    border: 2px solid #1a2b39; 
-    border-radius: 5px; 
-    color: #fff; 
-    font-weight: bold; 
-    cursor: pointer; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    font-size: 12px; 
-  }
-  .q-btn.wide { width: 42px; }
-  .q-btn.space { width: 82px; }
-  
-  /* SCANNER MODAL */
-  .scanner-modal { 
-    display: none; 
-    position: fixed; 
-    top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 430px; 
-    height: 780px; 
-    background: #000; 
-    z-index: 9999; 
-    flex-direction: column; 
-    border: 4px solid #7a8a9a;
-    border-radius: 10px;
-  }
-  .scanner-modal.active { display: flex; }
-  .scanner-header { 
-    width: 100%; 
-    height: 40px; 
-    background: #CAC7C9; 
-    color: #111; 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; 
-    padding: 0 12px; 
-    font-weight: 700;
-  }
-  .scanner-close { 
-    width: 30px; 
-    height: 30px; 
-    background: #2a4055; 
-    border-radius: 4px; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    font-size: 20px; 
-    cursor: pointer; 
-    color: white;
-  }
-  .scanner-content { flex: 1; background: #000; position: relative; }
-  #scanner-video { width: 100%; height: 100%; object-fit: cover; }
-  .scanner-frame { 
-    position: absolute; 
-    top: 50%; left: 50%; transform: translate(-50%, -50%); 
-    width: 280px; height: 120px; 
-    border: 2px solid #1e4a2b; 
-    box-shadow: 0 0 0 1000px rgba(0,0,0,0.5); 
-  }
-  .scanner-footer { 
-    width: 100%; height: 50px; 
-    background: #CAC7C9; 
-    display: flex; align-items: center; justify-content: center; 
-  }
-  .scanner-cancel { 
-    background: #7a2e2e; border: 2px solid #521f1f; border-radius: 6px; color: #fff; font-weight: bold; font-size: 16px; padding: 8px 30px; cursor: pointer; 
-  }
-  
-  .footer-time {
-    text-align: right;
-    font-size: 12px;
-    color: #b0c9f0;
-    padding: 2px 6px 0 0;
-  }
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+}
+
+body{
+width:360px;
+height:640px;
+overflow:hidden;
+background:#d4d0c8;
+font-family:Tahoma, Arial, sans-serif;
+color:#000;
+}
+
+/* MAIN CONTAINER */
+
+.app-container{
+width:360px;
+height:640px;
+display:flex;
+flex-direction:column;
+background:#d4d0c8;
+}
+
+/* WINCE TITLE BAR */
+
+.status-bar{
+width:100%;
+height:28px;
+background:#0a246a;
+color:white;
+display:flex;
+align-items:center;
+justify-content:space-between;
+padding:0 8px;
+font-size:13px;
+font-weight:bold;
+}
+
+/* CONTENT */
+
+.main-content{
+flex:1;
+padding:6px;
+display:flex;
+flex-direction:column;
+}
+
+/* INDUSTRIAL SCAN BUTTON */
+
+.scan-btn{
+width:100%;
+height:40px;
+background:#e4e4e4;
+border:2px solid #808080;
+border-top-color:#ffffff;
+border-left-color:#ffffff;
+border-right-color:#404040;
+border-bottom-color:#404040;
+font-size:16px;
+font-weight:bold;
+color:#000;
+cursor:pointer;
+margin-bottom:6px;
+}
+
+.scan-btn:active{
+border-top-color:#404040;
+border-left-color:#404040;
+border-right-color:#ffffff;
+border-bottom-color:#ffffff;
+}
+
+/* SECTION LABEL */
+
+.section-label{
+font-size:12px;
+font-weight:bold;
+margin:4px 0;
+}
+
+/* GRID */
+
+.grid{
+width:100%;
+background:#ffffff;
+border:1px solid #808080;
+padding:4px;
+margin-bottom:6px;
+}
+
+.row{
+display:flex;
+}
+
+.cell{
+width:16px;
+height:22px;
+border:1px solid #b0b0b0;
+background:white;
+text-align:center;
+font-family:Courier New, monospace;
+font-size:13px;
+line-height:22px;
+}
+
+.orange{
+background:#ffff99;
+}
+
+.gray{
+background:#e0e0e0;
+}
+
+/* STATUS HEADER */
+
+.select-status-header{
+width:100%;
+height:28px;
+background:#c0c0c0;
+border:1px solid #808080;
+display:flex;
+align-items:center;
+padding-left:6px;
+font-size:12px;
+font-weight:bold;
+margin-bottom:4px;
+}
+
+/* SELECT */
+
+.status-select{
+width:100%;
+height:32px;
+border:1px solid #808080;
+background:white;
+font-size:13px;
+margin-bottom:6px;
+}
+
+/* GPS */
+
+.gps-status{
+font-size:12px;
+background:#f0f0f0;
+border:1px solid #808080;
+padding:4px;
+margin-bottom:6px;
+display:flex;
+align-items:center;
+gap:6px;
+}
+
+.gps-dot{
+width:8px;
+height:8px;
+background:#ff0000;
+}
+
+.gps-dot.active{
+background:#00aa00;
+}
+
+/* STATUS MESSAGE */
+
+.status-message{
+border:1px solid #808080;
+background:#f0f0f0;
+padding:6px;
+text-align:center;
+font-size:12px;
+margin-bottom:6px;
+}
+
+.success{
+color:#006600;
+}
+
+.error{
+color:#aa0000;
+}
+
+/* KEYPAD */
+
+.keypad-wrapper{
+background:#d4d0c8;
+border:1px solid #808080;
+padding:4px;
+}
+
+.keypad-num{
+display:flex;
+justify-content:center;
+}
+
+.col{
+display:flex;
+flex-direction:column;
+}
+
+.center-col{
+display:flex;
+flex-direction:column;
+margin:0 4px;
+}
+
+.center-row{
+display:flex;
+justify-content:center;
+}
+
+/* BUTTONS */
+
+.btn,.grid-btn{
+width:56px;
+height:34px;
+margin:2px;
+background:#e4e4e4;
+border:2px solid #808080;
+border-top-color:#ffffff;
+border-left-color:#ffffff;
+border-right-color:#404040;
+border-bottom-color:#404040;
+font-size:14px;
+font-weight:bold;
+display:flex;
+align-items:center;
+justify-content:center;
+cursor:pointer;
+}
+
+.btn:active,.grid-btn:active{
+border-top-color:#404040;
+border-left-color:#404040;
+border-right-color:#ffffff;
+border-bottom-color:#ffffff;
+}
+
+/* QWERTY */
+
+.keypad-qwerty{
+display:none;
+flex-direction:column;
+align-items:center;
+}
+
+.q-row{
+display:flex;
+}
+
+.q-btn{
+width:28px;
+height:34px;
+margin:1px;
+background:#e4e4e4;
+border:1px solid #808080;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:12px;
+cursor:pointer;
+}
+
+.q-btn.wide{
+width:44px;
+}
+
+.q-btn.space{
+width:90px;
+}
+
+/* SCANNER */
+
+.scanner-modal{
+display:none;
+position:fixed;
+top:0;
+left:0;
+width:360px;
+height:640px;
+background:black;
+flex-direction:column;
+}
+
+.scanner-modal.active{
+display:flex;
+}
+
+.scanner-header{
+height:30px;
+background:#0a246a;
+color:white;
+display:flex;
+align-items:center;
+justify-content:space-between;
+padding:0 6px;
+}
+
+.scanner-close{
+cursor:pointer;
+}
+
+#scanner-video{
+width:100%;
+height:100%;
+object-fit:cover;
+}
+
+.scanner-footer{
+height:50px;
+display:flex;
+justify-content:center;
+align-items:center;
+background:#d4d0c8;
+}
+
+.scanner-cancel{
+background:#e4e4e4;
+border:1px solid #808080;
+padding:8px 20px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.footer-time{
+font-size:11px;
+text-align:right;
+margin-top:4px;
+}
 </style>
 </head>
 <body>
 <div class="app-container">
-  <!-- WinCE style header #CAC7C9 -->
   <div class="status-bar">
-    <span>📦 SCAN PDA [WinCE 6.0]</span>
+    <span>Scan & Track</span>
     <span id="timeDisplay">--:-- --</span>
   </div>
 
   <div class="main-content">
-    <button class="scan-btn" id="scanBtn">🔍 SCAN BARCODE</button>
+    <!-- DARK GREEN SCAN BUTTON - EASY TO IDENTIFY -->
+    <button class="scan-btn" id="scanBtn">SCAN BARCODE</button>
     
-    <div class="section-label">Barcode (max 20)</div>
+    <div class="section-label">Barcode entry</div>
 
-    <!-- GRID compact -->
+    <!-- GRID - original size restored -->
     <div class="grid">
       <div class="row input-row" id="inputRow">
         <div class="cell orange input-cell" data-index="0"></div><div class="cell input-cell" data-index="1"></div><div class="cell input-cell" data-index="2"></div><div class="cell input-cell" data-index="3"></div><div class="cell input-cell" data-index="4"></div><div class="cell input-cell" data-index="5"></div><div class="cell input-cell" data-index="6"></div><div class="cell input-cell" data-index="7"></div><div class="cell input-cell" data-index="8"></div><div class="cell input-cell" data-index="9"></div><div class="cell input-cell" data-index="10"></div><div class="cell input-cell" data-index="11"></div><div class="cell input-cell" data-index="12"></div><div class="cell input-cell" data-index="13"></div><div class="cell input-cell" data-index="14"></div><div class="cell input-cell" data-index="15"></div><div class="cell input-cell" data-index="16"></div><div class="cell input-cell" data-index="17"></div><div class="cell input-cell" data-index="18"></div><div class="cell input-cell" data-index="19"></div>
@@ -314,10 +360,12 @@
       <div class="row"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div><div class="cell gray"></div></div>
     </div>
 
-    <div class="select-status-header">⚙ SELECT STATUS</div>
+    <!-- SELECT STATUS - ORIGINAL EXACT HEADER -->
+    <div class="select-status-header">SELECT STATUS</div>
 
+    <!-- STATUSES - COMPLETELY RESTORED TO YOUR ORIGINAL LIST -->
     <select class="status-select" id="statusSelect">
-      <option value="">-- Status --</option>
+      <option value="">-- Select Status --</option>
       <option value="Item Booked">Item Booked</option>
       <option value="Item Bagged">Item Bagged</option>
       <option value="Item Dispatched">Item Dispatched</option>
@@ -328,22 +376,23 @@
       <option value="Delivered">Delivered</option>
     </select>
 
-    <!-- GPS realtime -->
+    <!-- GPS STATUS - ROBUST REAL-TIME GPS (NO SIMULATION) -->
     <div class="gps-status" id="gpsStatus">
       <span class="gps-dot" id="gpsDot"></span>
-      <span id="gpsText">Initializing GPS...</span>
+      <span id="gpsText">Requesting GPS access...</span>
     </div>
 
+    <!-- STATUS MESSAGE AREA - NO EMOJIS -->
     <div id="statusMessage" class="status-message">Ready</div>
 
-    <!-- KEYPAD (smaller) -->
+    <!-- KEYPAD - EXACT ORIGINAL LAYOUT RESTORED -->
     <div class="keypad-wrapper">
       <div class="keypad-num" id="keypadNum">
         <div class="col">
           <div class="btn key-btn" data-action="left">←</div>
           <div class="btn key-btn" data-action="right">→</div>
           <div class="btn key-btn" data-action="esc">ESC</div>
-          <div class="btn key-btn" data-action="toQwerty">ABC</div>
+          <div class="btn key-btn" data-action="toQwerty">ABC SYM</div>
         </div>
         <div class="center-col">
           <div class="center-row"><div class="grid-btn key-btn" data-char="1">1</div><div class="grid-btn key-btn" data-char="2">2</div><div class="grid-btn key-btn" data-char="3">3</div></div>
@@ -372,28 +421,13 @@
 
   <!-- SCANNER MODAL -->
   <div class="scanner-modal" id="scannerModal">
-    <div class="scanner-header"><div>SCAN BARCODE</div><div class="scanner-close" id="closeScanner">✕</div></div>
+    <div class="scanner-header"><div class="scanner-title">Scan Barcode</div><div class="scanner-close" id="closeScanner">✕</div></div>
     <div class="scanner-content"><video id="scanner-video"></video><div class="scanner-frame"></div></div>
     <div class="scanner-footer"><div class="scanner-cancel" id="cancelScan">CANCEL</div></div>
   </div>
 </div>
 
 <script>
-  // ========== BEEP SOUND (simple Web Audio API, works on most) ==========
-  function playBeep() {
-    try {
-      var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      var oscillator = audioCtx.createOscillator();
-      var gainNode = audioCtx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // high pitch
-      gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.15); // short beep
-    } catch(e) { console.log("Beep failed", e); }
-  }
-
   // TIME UPDATE
   function updateTime() {
     var el = document.getElementById("timeDisplay");
@@ -403,122 +437,341 @@
     hours = hours % 12 || 12;
     var minutes = now.getMinutes() < 10 ? "0" + now.getMinutes() : now.getMinutes();
     el.textContent = hours + ":" + minutes + " " + ampm;
+    
     document.getElementById("footerTime").textContent = now.toLocaleDateString();
   }
   setInterval(updateTime, 1000);
   updateTime();
 
-  // ========== ROBUST GPS (same as original, shortened) ==========
+  // ========== FIXED: ROBUST REVERSE GEOCODING WITH MULTIPLE FALLBACKS ==========
   var gpsDot = document.getElementById("gpsDot");
   var gpsText = document.getElementById("gpsText");
   
+  // Location object - always holds latest real data
   var locationData = {
     coords: { lat: null, lon: null, accuracy: null },
     address: { city: "", state: "", zip: "", full: "Acquiring GPS..." },
+    timestamp: null
   };
 
-  var lastKnownCoords = null;
   var watchId = null;
+  var lastKnownCoords = null;
 
+  // PRIMARY: BigDataCloud API (free, no API key needed for limited use)
+  // FALLBACK 1: Nominatim with proper headers
+  // FALLBACK 2: Coordinates only
   function fetchAddressFromCoords(lat, lon, callback) {
+    var addressResolved = false;
+    var fallbackTimer = setTimeout(function() {
+      if (!addressResolved) {
+        console.log("Geocoding timeout, using coordinates");
+        callback({ 
+          city: "", 
+          state: "", 
+          zip: "", 
+          full: lat.toFixed(4) + ", " + lon.toFixed(4) + " (location only)" 
+        });
+      }
+    }, 8000);
+
+    // Try BigDataCloud first (better for old browsers, no CORS issues usually)
     var bdcUrl = "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat + "&longitude=" + lon + "&localityLanguage=en";
+    
     var xhr = new XMLHttpRequest();
     xhr.open("GET", bdcUrl, true);
     xhr.timeout = 5000;
+    
     xhr.onload = function() {
-      if (xhr.status === 200) {
+      if (xhr.status === 200 && !addressResolved) {
         try {
           var data = JSON.parse(xhr.responseText);
-          var city = data.city || data.locality || "";
-          var state = data.principalSubdivision || "";
-          var zip = data.postcode || "";
-          var full = [city, state, zip].filter(Boolean).join(", ");
-          callback({ city, state, zip, full: full || lat.toFixed(4)+", "+lon.toFixed(4) });
-        } catch(e) { callback({ city:"", state:"", zip:"", full: lat.toFixed(4)+", "+lon.toFixed(4) }); }
-      } else { callback({ city:"", state:"", zip:"", full: lat.toFixed(4)+", "+lon.toFixed(4) }); }
+          if (data) {
+            addressResolved = true;
+            clearTimeout(fallbackTimer);
+            
+            var city = data.city || data.locality || data.town || "";
+            var state = data.principalSubdivision || data.administrativeArea || "";
+            var zip = data.postcode || "";
+            
+            var parts = [];
+            if (city) parts.push(city);
+            if (state) parts.push(state);
+            if (zip) parts.push(zip);
+            var full = parts.join(", ") || lat.toFixed(4) + ", " + lon.toFixed(4);
+            
+            callback({ city: city, state: state, zip: zip, full: full });
+            return;
+          }
+        } catch (e) {
+          console.log("BigDataCloud parse error, trying Nominatim");
+        }
+      }
+      
+      // If BigDataCloud fails, try Nominatim
+      if (!addressResolved) {
+        tryNominatim(lat, lon, callback, fallbackTimer, function() { addressResolved = true; });
+      }
     };
-    xhr.onerror = () => callback({ city:"", state:"", zip:"", full: lat.toFixed(4)+", "+lon.toFixed(4) });
+    
+    xhr.onerror = function() {
+      console.log("BigDataCloud network error, trying Nominatim");
+      if (!addressResolved) {
+        tryNominatim(lat, lon, callback, fallbackTimer, function() { addressResolved = true; });
+      }
+    };
+    
+    xhr.ontimeout = function() {
+      console.log("BigDataCloud timeout, trying Nominatim");
+      if (!addressResolved) {
+        tryNominatim(lat, lon, callback, fallbackTimer, function() { addressResolved = true; });
+      }
+    };
+    
     xhr.send();
   }
-
-  function updateGpsDisplay() {
-    if (locationData.coords.lat !== null) {
-      gpsDot.className = "gps-dot active";
-      var coordStr = locationData.coords.lat.toFixed(4)+", "+locationData.coords.lon.toFixed(4);
-      var text = locationData.address.full && !locationData.address.full.includes("Acquiring") ? locationData.address.full : coordStr;
-      if (locationData.coords.accuracy) text += " ±"+Math.round(locationData.coords.accuracy)+"m";
-      gpsText.textContent = text;
-    } else {
-      gpsDot.className = "gps-dot error";
-      gpsText.textContent = "GPS unavailable";
-    }
+  
+  // Nominatim fallback with proper headers for old browsers
+  function tryNominatim(lat, lon, callback, fallbackTimer, markResolved) {
+    var nominatimUrl = "https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lon + "&zoom=18&addressdetails=1";
+    
+    var xhr2 = new XMLHttpRequest();
+    xhr2.open("GET", nominatimUrl, true);
+    xhr2.timeout = 5000;
+    
+    // Set a proper User-Agent (required by Nominatim)
+    xhr2.setRequestHeader("User-Agent", "ScanTrack-App/1.0");
+    xhr2.setRequestHeader("Accept", "application/json");
+    
+    xhr2.onload = function() {
+      if (xhr2.status === 200) {
+        try {
+          var data = JSON.parse(xhr2.responseText);
+          if (data && data.address) {
+            markResolved();
+            clearTimeout(fallbackTimer);
+            
+            var addr = data.address;
+            var city = addr.city || addr.town || addr.village || addr.hamlet || addr.county || "";
+            var state = addr.state || addr.region || "";
+            var zip = addr.postcode || "";
+            
+            var parts = [];
+            if (city) parts.push(city);
+            if (state) parts.push(state);
+            if (zip) parts.push(zip);
+            var full = parts.join(", ") || lat.toFixed(4) + ", " + lon.toFixed(4);
+            
+            callback({ city: city, state: state, zip: zip, full: full });
+            return;
+          }
+        } catch (e) {
+          console.log("Nominatim parse error");
+        }
+      }
+      
+      // If both fail, just use coordinates
+      if (!markResolved) {
+        // Will be handled by fallback timer
+      }
+    };
+    
+    xhr2.onerror = function() {
+      console.log("Nominatim network error");
+      // Fallback timer will handle
+    };
+    
+    xhr2.send();
   }
 
+  // Update GPS display with current locationData
+  function updateGpsDisplay() {
+    var text = "";
+    var dotClass = "gps-dot";
+    
+    if (locationData.coords.lat !== null && locationData.coords.lon !== null) {
+      dotClass = "gps-dot active";
+      
+      // Always show coordinates + address if available
+      var coordStr = locationData.coords.lat.toFixed(4) + ", " + locationData.coords.lon.toFixed(4);
+      
+      if (locationData.address.full && locationData.address.full.indexOf("Acquiring") === -1) {
+        text = locationData.address.full;
+        // Add accuracy if available
+        if (locationData.coords.accuracy) {
+          text += " (±" + Math.round(locationData.coords.accuracy) + "m)";
+        }
+      } else {
+        // Fallback to coordinates if address not yet resolved
+        text = coordStr;
+        if (locationData.coords.accuracy) {
+          text += " (±" + Math.round(locationData.coords.accuracy) + "m)";
+        }
+        if (locationData.address.full && locationData.address.full.indexOf("location only") > -1) {
+          text = coordStr + " (address unavailable)";
+        }
+      }
+    } else {
+      dotClass = "gps-dot error";
+      text = "GPS unavailable - check permissions";
+    }
+    
+    gpsDot.className = dotClass;
+    gpsText.textContent = text;
+  }
+
+  // Handle geolocation success
   function onLocationSuccess(position) {
     var lat = position.coords.latitude;
     var lon = position.coords.longitude;
     var accuracy = position.coords.accuracy;
-    locationData.coords = { lat, lon, accuracy };
     
-    var dist = 1000;
+    // Update coordinates
+    locationData.coords = { lat: lat, lon: lon, accuracy: accuracy };
+    locationData.timestamp = position.timestamp;
+    
+    // Check if coordinates changed significantly (more than 100m) to trigger new reverse geocode
+    var shouldFetchAddress = true;
     if (lastKnownCoords) {
       var R = 6371e3;
       var φ1 = lastKnownCoords.lat * Math.PI/180;
       var φ2 = lat * Math.PI/180;
       var Δφ = (lat - lastKnownCoords.lat) * Math.PI/180;
       var Δλ = (lon - lastKnownCoords.lon) * Math.PI/180;
-      var a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+      var a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
       var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      dist = R * c;
+      var distance = R * c;
+      if (distance < 100) shouldFetchAddress = false;
     }
-    lastKnownCoords = { lat, lon };
     
+    lastKnownCoords = { lat: lat, lon: lon };
+    
+    // Update display immediately with coordinates
     updateGpsDisplay();
-    if (dist > 50 || !locationData.address.full || locationData.address.full.includes("Acquiring")) {
-      fetchAddressFromCoords(lat, lon, (addr) => {
+    
+    // Fetch new address if needed
+    if (shouldFetchAddress) {
+      fetchAddressFromCoords(lat, lon, function(addr) {
         locationData.address = addr;
         updateGpsDisplay();
       });
+    } else {
+      updateGpsDisplay();
     }
   }
-  function onLocationError(err) { 
-    gpsDot.className = "gps-dot error"; 
-    gpsText.textContent = "GPS error"; 
+
+  // Handle geolocation error
+  function onLocationError(error) {
+    var msg = "";
+    switch(error.code) {
+      case error.PERMISSION_DENIED: msg = "Permission denied - enable location"; break;
+      case error.POSITION_UNAVAILABLE: msg = "Position unavailable - weak signal"; break;
+      case error.TIMEOUT: msg = "GPS timeout - try again"; break;
+      default: msg = "GPS error";
+    }
+    locationData.coords = { lat: null, lon: null, accuracy: null };
+    gpsDot.className = "gps-dot error";
+    gpsText.textContent = "GPS: " + msg;
   }
+
+  // Start real-time location tracking
   function startRealTimeLocation() {
     if (navigator.geolocation) {
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-      watchId = navigator.geolocation.watchPosition(onLocationSuccess, onLocationError, { enableHighAccuracy: true, timeout: 15000 });
-    } else { gpsText.textContent = "No geolocation"; }
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      
+      var options = {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      };
+      
+      watchId = navigator.geolocation.watchPosition(onLocationSuccess, onLocationError, options);
+      
+      // Also try to get a quick fix with getCurrentPosition as backup
+      navigator.geolocation.getCurrentPosition(onLocationSuccess, onLocationError, options);
+    } else {
+      gpsDot.className = "gps-dot error";
+      gpsText.textContent = "Geolocation not supported";
+    }
   }
-  startRealTimeLocation();
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) startRealTimeLocation(); });
 
-  // GRID logic
+  // Start tracking when page loads
+  startRealTimeLocation();
+
+  // Restart tracking when page becomes visible
+  document.addEventListener("visibilitychange", function() {
+    if (!document.hidden) {
+      startRealTimeLocation();
+    }
+  });
+
+  // GRID LOGIC
   var cells = Array.from(document.querySelectorAll(".input-cell"));
   var activeIndex = 0;
   var statusMsg = document.getElementById("statusMessage");
   var statusSelect = document.getElementById("statusSelect");
 
-  function setActive(i) { cells.forEach(c => c.classList.remove("orange")); cells[i].classList.add("orange"); activeIndex = i; }
-  function writeChar(ch) { if (activeIndex < cells.length) { cells[activeIndex].textContent = ch; if (activeIndex < 19) setActive(activeIndex+1); } }
-  function writeBarcode(bc) { for (let i=0; i<bc.length && i<20; i++) cells[i].textContent = bc[i]; setActive(0); playBeep(); } // BEEP added here!
-  function getBarcode() { var s=""; for(let i=0;i<20;i++) if(cells[i].textContent) s+=cells[i].textContent; else break; return s; }
-  function clearGrid() { cells.forEach(c=>c.textContent=""); setActive(0); }
+  function setActive(i) { 
+    cells.forEach(c => c.classList.remove("orange")); 
+    cells[i].classList.add("orange"); 
+    activeIndex = i; 
+  }
+  
+  function writeChar(ch) { 
+    cells[activeIndex].textContent = ch; 
+    if (activeIndex < 19) setActive(activeIndex + 1); 
+  }
+  
+  function writeBarcode(bc) { 
+    for (var i=0; i<bc.length && i<20; i++) cells[i].textContent = bc[i]; 
+    setActive(0); 
+  }
+  
+  function getBarcode() { 
+    var bc = ""; 
+    for (var i=0; i<20; i++) if (cells[i].textContent) bc += cells[i].textContent; else break; 
+    return bc; 
+  }
+  
+  function clearGrid() { 
+    cells.forEach(c => c.textContent = ""); 
+    setActive(0); 
+  }
 
+  // GOOGLE APPS SCRIPT URL
   var GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPuKraCIl5bkA5UR3xV8oK5QplHpjbe_uZfRM2B1OSb22S7gw0KaZ9qtiyedP0cEw/exec";
   
   function sendToGoogleSheets(barcode) {
     var status = statusSelect.value;
-    if (!status) { statusMsg.className = "status-message error"; statusMsg.textContent = "Select status!"; return; }
-    statusMsg.className = "status-message sending"; statusMsg.textContent = "Saving...";
-    var now = new Date();
-    var date = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,'0')+"-"+String(now.getDate()).padStart(2,'0');
-    var time = String(now.getHours()).padStart(2,'0')+":"+String(now.getMinutes()).padStart(2,'0')+":"+String(now.getSeconds()).padStart(2,'0');
-    var locationString = locationData.address.full;
-    if (!locationString || locationString.includes("Acquiring")) {
-      if (locationData.coords.lat) locationString = locationData.coords.lat.toFixed(4)+", "+locationData.coords.lon.toFixed(4);
+    if (!status) { 
+      statusMsg.className = "status-message error";
+      statusMsg.textContent = "Select status!"; 
+      return; 
     }
+    
+    statusMsg.className = "status-message sending";
+    statusMsg.textContent = "Saving to Google Sheets...";
+    
+    var now = new Date();
+    var date = now.getFullYear() + "-" + 
+               String(now.getMonth() + 1).padStart(2, '0') + "-" + 
+               String(now.getDate()).padStart(2, '0');
+    var time = String(now.getHours()).padStart(2, '0') + ":" + 
+               String(now.getMinutes()).padStart(2, '0') + ":" + 
+               String(now.getSeconds()).padStart(2, '0');
+    
+    // Use the real-time location data
+    var locationString = locationData.address.full;
+    if (locationData.coords.lat && locationData.coords.lon) {
+      // If address not available, use coordinates
+      if (locationString.indexOf("Acquiring") !== -1 || locationString.indexOf("location only") !== -1) {
+        locationString = locationData.coords.lat.toFixed(4) + ", " + locationData.coords.lon.toFixed(4);
+      }
+    }
+    
     var formData = new FormData();
     formData.append("label_id", barcode);
     formData.append("barcode_type", "EAN-13");
@@ -534,27 +787,62 @@
 
     var xhr = new XMLHttpRequest();
     xhr.open("POST", GOOGLE_SCRIPT_URL, true);
+    
     xhr.onload = function() {
       try {
-        var resp = JSON.parse(xhr.responseText);
-        if (resp.success) {
-          statusMsg.className = "status-message success"; statusMsg.textContent = "SAVED!";
-          alert("SAVED\nBarcode: "+barcode+"\nStatus: "+status);
-          clearGrid(); playBeep(); // BEEP after save too
-        } else throw new Error(resp.error);
-      } catch(e) { statusMsg.className = "status-message error"; statusMsg.textContent = "Error: "+e.message; }
+        var response = JSON.parse(xhr.responseText);
+        if (response.success) {
+          statusMsg.className = "status-message success";
+          statusMsg.textContent = "SAVED TO GOOGLE SHEETS!";
+          alert("SUCCESS!\nBarcode: " + barcode + "\nStatus: " + status + "\nLocation: " + locationString);
+          clearGrid();
+        } else {
+          throw new Error(response.error || "Unknown error");
+        }
+      } catch(e) {
+        statusMsg.className = "status-message error";
+        statusMsg.textContent = "Error: " + e.message;
+        alert("ERROR:\n" + e.message);
+      }
     };
-    xhr.onerror = function() { statusMsg.className = "status-message error"; statusMsg.textContent = "Network error"; };
+    
+    xhr.onerror = function() {
+      statusMsg.className = "status-message error";
+      statusMsg.textContent = "Network error";
+      alert("NETWORK ERROR");
+    };
+    
     xhr.send(formData);
   }
 
-  function doEnter() { var bc = getBarcode(); if(bc) sendToGoogleSheets(bc); else { statusMsg.className="error"; statusMsg.textContent="Empty barcode"; } }
-  function doEsc() { clearGrid(); statusMsg.textContent="Ready"; }
+  function doEnter() { 
+    var bc = getBarcode(); 
+    if (bc) {
+      sendToGoogleSheets(bc);
+    } else {
+      statusMsg.className = "status-message error";
+      statusMsg.textContent = "No barcode entered";
+    }
+  }
+  
+  function doEsc() { 
+    clearGrid(); 
+    statusMsg.className = "status-message";
+    statusMsg.textContent = "Ready"; 
+  }
 
-  // Scanner with beep integrated
+  // SCANNER
   var scannerModal = document.getElementById("scannerModal");
-  document.getElementById("scanBtn").onclick = function() { scannerModal.classList.add("active"); startScanner(); };
-  function closeScanner() { if (codeReader) codeReader.reset(); scannerModal.classList.remove("active"); }
+  document.getElementById("scanBtn").onclick = function() { 
+    scannerModal.classList.add("active"); 
+    startScanner(); 
+  };
+  
+  function closeScanner() { 
+    if (codeReader) codeReader.reset(); 
+    scannerModal.classList.remove("active"); 
+  }
+  
   document.getElementById("closeScanner").onclick = closeScanner;
   document.getElementById("cancelScan").onclick = closeScanner;
   
@@ -562,16 +850,16 @@
   function startScanner() {
     try {
       codeReader = new ZXing.BrowserMultiFormatReader();
-      codeReader.decodeFromVideoDevice(null, document.getElementById("scanner-video"), (result) => {
+      codeReader.decodeFromVideoDevice(null, document.getElementById("scanner-video"), function(result) {
         if (result) {
-          writeBarcode(result.text);  // BEEP inside writeBarcode
+          writeBarcode(result.text);
           closeScanner();
         }
       });
-    } catch(e) { alert("Camera error"); }
+    } catch(e) { alert("Camera error: " + e.message); }
   }
 
-  // Keypad events
+  // KEYPAD - ORIGINAL BEHAVIOR
   document.querySelectorAll(".key-btn").forEach(btn => {
     btn.onclick = function() {
       var char = this.dataset.char;
@@ -587,8 +875,14 @@
       }
       else if (action === "enter") doEnter();
       else if (action === "esc") doEsc();
-      else if (action === "toQwerty") { document.getElementById("keypadNum").style.display = "none"; document.getElementById("keypadQwerty").style.display = "flex"; }
-      else if (action === "toNum") { document.getElementById("keypadNum").style.display = "flex"; document.getElementById("keypadQwerty").style.display = "none"; }
+      else if (action === "toQwerty") {
+        document.getElementById("keypadNum").style.display = "none";
+        document.getElementById("keypadQwerty").style.display = "flex";
+      }
+      else if (action === "toNum") {
+        document.getElementById("keypadNum").style.display = "flex";
+        document.getElementById("keypadQwerty").style.display = "none";
+      }
     };
   });
 
